@@ -80,19 +80,21 @@ void updateLcd() {
 
 
 
-
-enum ToolSelectionState {
-	SelectTool,
-	SelectCommand,
-	SelectValue
+enum MenuSelectionState {
+	Default,
+	PageOne,
+	PageTwo,
+	PageThree
 };
 
 enum ToolCommandType {
-	Open,
-	Close,
-	OpenX,
-	CloseX
+	OpenAllGates,
+	CloseAllGates,
+	OpenGateNumber,
+	CloseGateNumber,
+	OpenGateIncrementally,
+	CloseGateIncrementally
 };
 
-ToolSelectionState currentToolSelectionState = ToolSelectionState.SelectTool;
-ToolCommandType currentToolCommandType = NULL;
+MenuSelectionState menuSelectionState = MenuSelectionState.Default;
+ToolCommandType toolCommandType = NULL;

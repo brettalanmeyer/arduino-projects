@@ -7,8 +7,7 @@
 * https://brainy-bits.com
 
 
-Open All Gates
-Close All Gates
+
 
 
 ## Prompts
@@ -18,55 +17,36 @@ Program initializes
 LCD
 
 
-	Welcome to Brett's Shop
-	Select a tool: 1 - 8
-	>> 2
-	A: Open     B: Close
-	C: Open x   D: Close X
-	>> A
-	Opening Gate 2 for the Drill Press
+
+Open All Gates
+Close All Gates
+Open Gate #
+Open Gate # Incrementally
+Close Gate #
+Close Gate # Incrementally
 
 
-	Welcome to Brett's Shop
-	Select a tool: 1 - 8
-	>> 8
-	A: Open		B: Close
-	C: Open x	D: Close X
-	>> B
-	Closing Gate 8 for the Table Saw
 
+	Brett's Shop
+	# for options
 
-	Welcome to Brett's Shop
-	Select a tool: 1 - 8
-	>> 6
-	A: Open		B: Close
-	C: Open x	D: Close X
-	>> C
-	Select a number
+	>> #
+	1: Open Gates
+	2: Close Gates
+
+	>> #
+	3: Open Gate #
+	4: Close Gate #
+
+	>> #
+	5: OpenX Gate #
+	6: CloseX Gate #
+
+	>> #
+	Brett's Shop
+	# for options
+
 	>> 1
-	Opening Gate 6 for the Band Saw 1/10 revolution
-
-
-	Welcome to Brett's Shop
-	Select a tool: 1 - 8
-	>> 6
-	A: Open		B: Close
-	C: Open x	D: Close X
-	>> C
-	Select a number
-	>> 5
-	Opening Gate 6 for the Band Saw 5/10 revolution
-
-
-	Welcome to Brett's Shop
-	Select a tool: 1 - 8
-	>> 6
-	A: Open		B: Close
-	C: Open x	D: Close X
-	>> C
-	Select a number
-	>> 0
-	Opening Gate 6 for the Band Saw 1 revolution
 
 
 

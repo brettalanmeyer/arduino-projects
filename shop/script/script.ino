@@ -2,6 +2,8 @@
 #include <Keypad.h>
 #include <LiquidCrystal.h>
 
+
+
 // MotorInterfaceType
 const int EASY_DRIVER_INTERFACE = 1;
 
@@ -64,24 +66,25 @@ byte colPins[COLS] = { 3, 4, 5, 6 };
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
 enum MenuSelectionState {
-	Default,
-	PageOne,
-	PageTwo,
-	PageThree,
+	MenuSelectionStateDefault,
+	MenuSelectionStatePageOne,
+	MenuSelectionStatePageTwo,
+	MenuSelectionStatePageThree,
 };
 
 enum ToolCommandType {
-	OpenAllGates,
-	CloseAllGates,
-	OpenGateNumber,
-	CloseGateNumber,
-	OpenGateIncrementally,
-	CloseGateIncrementally
+	ToolCommandTypeOpenAllGates,
+	ToolCommandTypeCloseAllGates,
+	ToolCommandTypeOpenGateNumber,
+	ToolCommandTypeCloseGateNumber,
+	ToolCommandTypeOpenGateIncrementally,
+	ToolCommandTypeCloseGateIncrementally
 };
 
-MenuSelectionState menuSelectionState = MenuSelectionState.Default;
+MenuSelectionState menuSelectionState = MenuSelectionStateDefault;
 ToolCommandType toolCommandType = NULL;
 int selectedToolNumber = NULL;
+
 
 
 // toggles power to lcd backlight
@@ -107,7 +110,7 @@ void setup() {
 }
 
 void loop() {
-	checkKeypad();
+	checkKeyPad();
 	checkToggleButton();
 }
 
@@ -173,10 +176,8 @@ void printToLcd(String line1, String line2) {
 	lcd.setCursor(0, 0);
 	lcd.print(line1);
 
-	if (line2 != NULL) {
-		lcd.setCursor(0, 1);
-		lcd.print(line2);
-	}
+	lcd.setCursor(0, 1);
+	lcd.print(line2);
 
 	turnLcdBackLightOn();
 	lcdTurnOffDelay = millis() / 1000;
@@ -188,91 +189,37 @@ void updateLcd() {
 	}
 }
 
-void cancelMenu() {
-	menuSelectionState = MenuSelectionState.Default;
-	toolCommandType = NULL;
-	selectedToolNumber = NULL;
-	printDefaultMessage();
-}
-
 void checkKeyPad() {
 
 	char key = keypad.getKey();
 
 	if (key) {
 
-		if (isControl(key)) {
+		if (isControlKey(key)) {
 
-			// cancel
 			if (key == '*') {
 				cancelMenu();
 
-			// cycle menus
 			} else if(key == '#') {
-
-				if (menuSelectionState == MenuSelectionState.Default) {
-					menuSelectionState == MenuSelectionState.PageOne;
-					printToLcd("1: Open Gates", "2: Close Gates");
-
-				} else if (menuSelectionState == MenuSelectionState.PageOne) {
-					menuSelectionState == MenuSelectionState.PageTwo;
-					printToLcd("3: Open Gate#", "4: Close Gate#");
-
-				} else if (menuSelectionState == MenuSelectionState.PageTwo) {
-					menuSelectionState == MenuSelectionState.PageThree;
-					printToLcd("5: OpenX Gate#", "6: CloseX Gate#");
-
-				} else if (menuSelectionState == MenuSelectionState.PageThree) {
-					menuSelectionState == MenuSelectionState.Default;
-					printDefaultMessage();
-				}
-
+				cycleMenus();
 			}
 
-		} else if(isNumber(key)) {
+		} else if(isNumberKey(key)) {
 
 			if (toolCommandType == NULL) {
+				selectInitialOptions(key);
 
-				if (key == '1') {
-					toolCommandType = ToolCommandType.OpenAllGates;
-					printToLcd("Opening All", "Gates...");
-					openAllGates();
-					printToLcd("Gates Opened");
-
-				} else if (key == '2') {
-					toolCommandType = ToolCommandType.CloseAllGates;
-					printToLcd("Closing All", "Gates...");
-					closeAllGates(NULL);
-					printToLcd("Gates Closed");
-
-				} else if (key == '3') {
-					toolCommandType = ToolCommandType.OpenGateNumber;
-					printToLcd("Select Gate", "Number");
-
-				} else if (key == '4') {
-					toolCommandType = ToolCommandType.CloseGateNumber;
-					printToLcd("Select Gate", "Number");
-
-				} else if (key == '5') {
-					toolCommandType = ToolCommandType.OpenGateIncrementally;
-					printToLcd("Select Gate", "Number");
-
-				} else if (key == '6') {
-					toolCommandType = ToolCommandType.CloseGateIncrementally;
-					printToLcd("Select Gate", "Number");
-				}
-
-			} else if (toolCommandType == ToolCommandType.OpenGateNumber) {
+			} else if (toolCommandType == ToolCommandTypeOpenGateNumber) {
 				selectedToolNumber = (int) key;
 				openGate(selectedToolNumber - 1);
 				selectedToolNumber = NULL;
 
-			} else if (toolCommandType == ToolCommandType.CloseGateNumber) {
+			} else if (toolCommandType == ToolCommandTypeCloseGateNumber) {
 				selectedToolNumber = (int) key;
 				closeGate(selectedToolNumber - 1);
 				selectedToolNumber = NULL;
 
-			} else if (toolCommandType == ToolCommandType.OpenGateIncrementally) {
+			} else if (toolCommandType == ToolCommandTypeOpenGateIncrementally) {
 				printToLcd("Select a value", "to open by...");
 				if (selectedToolNumber == NULL) {
 					selectedToolNumber = (int) key;
@@ -280,7 +227,7 @@ void checkKeyPad() {
 					openGateIncrementally(selectedToolNumber - 1, (int) key);
 				}
 
-			} else if (toolCommandType == ToolCommandType.CloseGateIncrementally) {
+			} else if (toolCommandType == ToolCommandTypeCloseGateIncrementally) {
 				printToLcd("Select a value", "to close by...");
 				if (selectedToolNumber == NULL) {
 					selectedToolNumber = (int) key;
@@ -292,22 +239,79 @@ void checkKeyPad() {
 	}
 }
 
-boolean isLetter(char c) {
+void cancelMenu() {
+	menuSelectionState = MenuSelectionStateDefault;
+	toolCommandType = NULL;
+	selectedToolNumber = NULL;
+	printDefaultMessage();
+}
+
+void cycleMenus() {
+	if (menuSelectionState == MenuSelectionStateDefault) {
+		menuSelectionState == MenuSelectionStatePageOne;
+		printToLcd("1: Open Gates", "2: Close Gates");
+
+	} else if (menuSelectionState == MenuSelectionStatePageOne) {
+		menuSelectionState == MenuSelectionStatePageTwo;
+		printToLcd("3: Open Gate#", "4: Close Gate#");
+
+	} else if (menuSelectionState == MenuSelectionStatePageTwo) {
+		menuSelectionState == MenuSelectionStatePageThree;
+		printToLcd("5: OpenX Gate#", "6: CloseX Gate#");
+
+	} else if (menuSelectionState == MenuSelectionStatePageThree) {
+		menuSelectionState == MenuSelectionStateDefault;
+		printDefaultMessage();
+	}
+}
+
+void selectInitialOptions(char key) {
+	if (key == '1') {
+		toolCommandType = ToolCommandTypeOpenAllGates;
+		printToLcd("Opening All", "Gates...");
+		openAllGates();
+		printToLcd("Gates Opened", "");
+
+	} else if (key == '2') {
+		toolCommandType = ToolCommandTypeCloseAllGates;
+		printToLcd("Closing All", "Gates...");
+		closeAllGates(NULL);
+		printToLcd("Gates Closed", "");
+
+	} else if (key == '3') {
+		toolCommandType = ToolCommandTypeOpenGateNumber;
+		printToLcd("Select Gate", "Number");
+
+	} else if (key == '4') {
+		toolCommandType = ToolCommandTypeCloseGateNumber;
+		printToLcd("Select Gate", "Number");
+
+	} else if (key == '5') {
+		toolCommandType = ToolCommandTypeOpenGateIncrementally;
+		printToLcd("Select Gate", "Number");
+
+	} else if (key == '6') {
+		toolCommandType = ToolCommandTypeCloseGateIncrementally;
+		printToLcd("Select Gate", "Number");
+	}
+}
+
+boolean isLetterKey(char c) {
 	return (c == 'A' || c == 'B' || c == 'C' || c == 'D');
 }
 
-boolean isControl(char c) {
+boolean isControlKey(char c) {
 	return (c == '*' || c == '#');
 }
 
-boolean isNumber(char c) {
+boolean isNumberKey(char c) {
 	return (c == '0' || c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '6' || c == '7' || c == '8' || c == '9');
 }
 
 void checkToggleButton() {
-	for(int i = 0; i < TOOL_COUNT; i++){
+	for (int i = 0; i < TOOL_COUNT; i++) {
 
-		if(digitalRead(tools[i].button) == LOW){
+		if (digitalRead(tools[i].togglePin) == LOW) {
 
 			toggleDustCollector();
 
@@ -335,7 +339,7 @@ void openAllGates() {
 void openGate(int index) {
 	Serial.println("Opening tool " + index);
 
-	printToLcd("Opening Gate " + index + " for the " tools[index].name, NULL);
+	printToLcd("Opening Gate " + String(index) + " for the " + tools[index].name, "");
 	tools[index].open = true;
 
 	long newPosition = tools[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
@@ -344,7 +348,7 @@ void openGate(int index) {
 
 void openGateIncrementally(int index, int value) {
 	int revolutions = getRevolutions(value);
-	Serial.println("Opening tool " + index + " amount: " + revolutions);
+	Serial.println("Opening tool " + String(index) + " amount: " + String(revolutions));
 	long newPosition = tools[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * revolutions);
 	moveGate(index, newPosition);
 }
@@ -368,7 +372,7 @@ void closeGate(int index) {
 
 void closeGateIncrementally(int index, int value) {
 	int revolutions = getRevolutions(value);
-	Serial.println("Opening tool " + index + " amount: " + revolutions);
+	Serial.println("Opening tool " + String(index) + " amount: " + String(revolutions));
 	long newPosition = tools[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * revolutions);
 	moveGate(index, newPosition);
 }
@@ -398,5 +402,3 @@ void sleepTool(int index) {
 	Serial.println("Sleeping tool " + index);
 	digitalWrite(tools[index].sleepPin, LOW);
 }
-
-

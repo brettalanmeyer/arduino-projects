@@ -78,3 +78,21 @@ void updateLcd() {
 	}
 }
 
+
+
+
+enum ToolSelectionState {
+	SelectTool,
+	SelectCommand,
+	SelectValue
+};
+
+enum ToolCommandType {
+	Open,
+	Close,
+	OpenX,
+	CloseX
+};
+
+ToolSelectionState currentToolSelectionState = ToolSelectionState.SelectTool;
+ToolCommandType currentToolCommandType = NULL;

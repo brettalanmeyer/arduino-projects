@@ -2,8 +2,6 @@
 #include <Keypad.h>
 #include <LiquidCrystal.h>
 
-
-
 // MotorInterfaceType
 const int EASY_DRIVER_INTERFACE = 1;
 
@@ -36,14 +34,14 @@ struct Tool {
 };
 
 Tool tools[TOOL_COUNT] = {
-	{ "Jointer", 		1,		46,		true, 	stepperJointer,			false,	48		},
-	{ "Drill Press", 	2,		38,		true, 	stepperDrillPress,		false,	40		},
-	{ "Sanders", 		3,		30,		true, 	stepperSanders,			false,	32		},
-	{ "Planer", 		4,		22,		true, 	stepperPlaner, 			false,	24		},
-	{ "Router Table", 	5,		47,		true, 	stepperRouterTable,	 	false,	49		},
-	{ "Band Saw", 		6,		39,		true, 	stepperBandSaw,			false,	41		},
-	{ "Miter Saw", 		7,		2,		false, 	NULL, 					false,	NULL	},
-	{ "Table Tab", 		8,		31,		true, 	stepperTableSaw,		false,	33		},
+	{ "Jointer",		1,		46,		true,	stepperJointer,			false,	48		},
+	{ "Drill Press",	2,		38,		true,	stepperDrillPress,		false,	40		},
+	{ "Sanders",		3,		30,		true,	stepperSanders,			false,	32		},
+	{ "Planer", 		4,		22,		true,	stepperPlaner,			false,	24		},
+	{ "Router Table",	5,		47,		true,	stepperRouterTable,		false,	49		},
+	{ "Band Saw",		6,		39,		true,	stepperBandSaw,			false,	41		},
+	{ "Miter Saw",		7,		2,		false,	NULL,					false,	NULL	},
+	{ "Table Tab",		8,		31,		true,	stepperTableSaw,		false,	33		},
 };
 
 
@@ -65,6 +63,22 @@ byte colPins[COLS] = { 3, 4, 5, 6 };
 
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
+enum ToolSelectionState {
+	SelectTool,
+	SelectCommand,
+	SelectValue
+};
+
+enum ToolCommandType {
+	Open,
+	Close,
+	OpenX,
+	CloseX
+};
+
+ToolSelectionState currentToolSelectionState = ToolSelectionState.SelectTool;
+ToolCommandType currentToolCommandType = NULL;
+int selectedToolNumber = NULL;
 
 
 // toggles power to lcd backlight
@@ -99,7 +113,7 @@ void initializeLcdPanel() {
 	// set up the LCD's number of columns and rows:
 	lcd.begin(16, 2);
 
-	printToLcd("Welcome to Brett's Shop", "Select a tool: 1 - 8");
+	printDefaultMessage();
 }
 
 void initializeToggleButtons() {
@@ -114,7 +128,6 @@ void initializeStepperMotors() {
 	for (int i = 0; i < TOOL_COUNT; i++) {
 
 		if (tools[i].stepperEnabled) {
-			// define values
 			tools[i].stepper.setMaxSpeed(5000);
 			tools[i].stepper.setAcceleration(5000);
 
@@ -128,7 +141,7 @@ void initializeInfraredLed() {
 	Serial.println("Initializing infrared led");
 }
 
-void transmitDustCollectorSignal() {
+void toggleDustCollector() {
 	Serial.println("Transmitting dust collector signal");
 }
 
@@ -142,6 +155,10 @@ void turnLcdBackLightOff() {
 	lcd.noDisplay();
 	digitalWrite(LCD_TRANSISTOR_PIN, LOW);
 	lcdBackLightOn = false;
+}
+
+void printDefaultMessage() {
+	printToLcd("Welcome to Brett's Shop", "Select a tool: 1 - 8");
 }
 
 void printToLcd(String line1, String line2) {
@@ -165,12 +182,79 @@ void updateLcd() {
 	}
 }
 
+void checkKeyPad() {
+
+	char key = keypad.getKey();
+
+	if (key) {
+
+		if (isNumber(key)) {
+
+			if (currentToolSelectionState == ToolSelectionState.SelectTool) {
+				currentToolSelectionState = ToolSelectionState.SelectCommand;
+				selectedToolNumber = (int) key;
+
+				printToLcd("A: Open     B: Close", "C: Open x   D: Close X");
+
+			} else if(currentToolSelectionState == ToolSelectionState.SelectValue) {
+				selectedValue = (int) key;
+
+				if(currentToolCommandType == ToolCommandType.OpenX){
+					openToolX(selectedToolNumber - 1, selectedValue);
+				} else if(currentToolCommandType == ToolCommandType.CloseX) {
+					closeToolX(selectedToolNumber - 1, selectedValue);
+				}
+
+			}
+
+		} else if(isControl(key)) {
+
+			currentToolSelectionState == ToolSelectionState.SelectTool
+			selectedToolNumber = NULL;
+			selectedValue = NULL;
+			printDefaultMessage();
+
+		} else if (isLetter(key)) {
+
+			if (currentToolSelectionState == ToolSelectionState.SelectCommand) {
+				if (key == 'A') {
+					currentToolCommandType = ToolCommandType.Open;
+					openTool(selectedToolNumber - 1);
+				} else if (key == 'B') {
+					currentToolCommandType = ToolCommandType.Close;
+					closeTool(selectedToolNumber - 1);
+				} else if (key == 'C') {
+					currentToolCommandType = ToolCommandType.OpenX;
+				} else if (key == 'D') {
+					currentToolCommandType = ToolCommandType.CloseX;
+				}
+
+			}
+
+		}
+
+	}
+
+}
+
+boolean isLetter(char c) {
+	return (c == 'A' || c == 'B' || c == 'C' || c == 'D');
+}
+
+boolean isControl(char c) {
+	return (c == '*' || c == '#');
+}
+
+boolean isNumber(char c) {
+	return (c == '0' || c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '6' || c == '7' || c == '8' || c == '9' || c == '0');
+}
+
 void checkToggleButton() {
 	for(int i = 0; i < TOOL_COUNT; i++){
 
 		if(digitalRead(tools[i].button) == LOW){
 
-			transmitDustCollectorSignal();
+			toggleDustCollector();
 
 			if (!tools[i].open) {
 				closeAllTools(i);
@@ -189,21 +273,43 @@ void openTool(int index) {
 	printToLcd("Opening Gate " + index + " for the " tools[index].name, NULL);
 	tools[index].open = true;
 
-	wakeTool(index);
 	long newPosition = tools[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
-	tools[index].stepper.runToNewPosition(newPosition);
-	sleepTool(index);
+	moveTool(index, newPosition);
+}
+
+void openToolX(int index, int value) {
+	int revolutions = getRevolutions(value);
+	Serial.println("Opening tool " + index + " amount: " + revolutions);
+	long newPosition = tools[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * revolutions);
+	moveTool(index, newPosition);
 }
 
 void closeTool(int index) {
 	Serial.println("Closing tool " + index);
-
 	tools[index].open = false;
-
-	wakeTool(index);
 	long newPosition = tools[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
+	moveTool(index, newPosition);
+}
+
+void closeToolX(int index, int value) {
+	int revolutions = getRevolutions(value);
+	Serial.println("Opening tool " + index + " amount: " + revolutions);
+}
+
+void moveTool(int index, long newPosition) {
+	wakeTool(index);
 	tools[index].stepper.runToNewPosition(newPosition);
 	sleepTool(index);
+}
+
+int getRevolutions(int value) {
+	if (value == 0) {
+		return 1;
+	} else {
+		return value / 10;
+	}
+
+	return 0;
 }
 
 void closeAllTools(int index) {
@@ -225,3 +331,5 @@ void sleepTool(int index) {
 	Serial.println("Sleeping tool " + index);
 	digitalWrite(tools[index].sleepPin, LOW);
 }
+
+

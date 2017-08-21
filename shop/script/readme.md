@@ -7,6 +7,10 @@
 * https://brainy-bits.com
 
 
+Open All Gates
+Close All Gates
+
+
 ## Prompts
 
 All gates start off closed
@@ -17,8 +21,8 @@ LCD
 	Welcome to Brett's Shop
 	Select a tool: 1 - 8
 	>> 2
-	A: Open		B: Close
-	C: Open x	D: Close X
+	A: Open     B: Close
+	C: Open x   D: Close X
 	>> A
 	Opening Gate 2 for the Drill Press
 

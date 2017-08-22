@@ -7,14 +7,18 @@
 // MotorInterfaceType
 const int EASY_DRIVER_INTERFACE = 1;
 
-// number of tools to configure
-const int TOOL_COUNT = 8;
+// number of gates to configure
+const int GATE_COUNT = 8;
 
 // stepper motor steps per single revolution
 const int STEPS_PER_REVOLUTION = 1600;
 
 // number of revolutions to open/close blast gate, around 4" of travel
 const int REVOLUTIONS_PER_CYCLE = 12.8;
+
+// stepper intialization values
+const int STEPPER_MAX_SPEED = 5000;
+const int STEPPER_ACCELERATION = 5000;
 
 // initializing stepper motors
 AccelStepper stepperJointer		(EASY_DRIVER_INTERFACE,	52,	50);
@@ -25,7 +29,7 @@ AccelStepper stepperRouterTable	(EASY_DRIVER_INTERFACE,	53,	51);
 AccelStepper stepperBandSaw		(EASY_DRIVER_INTERFACE,	45,	43);
 AccelStepper stepperTableSaw	(EASY_DRIVER_INTERFACE,	37,	35);
 
-struct Tool {
+struct Gate {
 	String name;
 	int toolNumber;
 	int togglePin;
@@ -35,7 +39,7 @@ struct Tool {
 	int sleepPin;
 };
 
-Tool tools[TOOL_COUNT] = {
+Gate gates[GATE_COUNT] = {
 	{ "Jointer",		1,		46,		true,	stepperJointer,			false,	48		},
 	{ "Drill Press",	2,		38,		true,	stepperDrillPress,		false,	40		},
 	{ "Sanders",		3,		30,		true,	stepperSanders,			false,	32		},
@@ -48,7 +52,7 @@ Tool tools[TOOL_COUNT] = {
 
 
 
-// keypad is a 4x4 pad with 0-9, A-D, *, and #
+// 4 x 4 keypad module
 const byte ROWS = 4;
 const byte COLS = 4;
 char keys[ROWS][COLS] = {
@@ -60,34 +64,38 @@ char keys[ROWS][COLS] = {
 
 // connect to the row pinouts of the keypad starting with left most pin 8, 7, 6, 5
 byte rowPins[ROWS] = { 29, 27, 25, 23 };
+
 // connect to the column pinouts of the keypad ending with right most pin 4, 3, 2, 1
 byte colPins[COLS] = { 3, 4, 5, 6 };
 
-Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
+// sections of menu
 enum MenuSelectionState {
 	MenuSelectionStateDefault,
 	MenuSelectionStatePageOne,
 	MenuSelectionStatePageTwo,
 	MenuSelectionStatePageThree,
 };
-
-enum ToolCommandType {
-	ToolCommandTypeOpenAllGates,
-	ToolCommandTypeCloseAllGates,
-	ToolCommandTypeOpenGateNumber,
-	ToolCommandTypeCloseGateNumber,
-	ToolCommandTypeOpenGateIncrementally,
-	ToolCommandTypeCloseGateIncrementally
-};
-
 MenuSelectionState menuSelectionState = MenuSelectionStateDefault;
-ToolCommandType toolCommandType = NULL;
-int selectedToolNumber = NULL;
+
+// actions selectable from menu
+enum ActionType {
+	ActionTypeOpenAllGates,
+	ActionTypeCloseAllGates,
+	ActionTypeOpenGateNumber,
+	ActionTypeCloseGateNumber,
+	ActionTypeOpenGateIncrementally,
+	ActionTypeCloseGateIncrementally
+};
+ActionType actionType = NULL;
+
+// value of gate selected from keypad, index of gate will be value - 1
+int selectedGateNumber = NULL;
 
 
 
-// toggles power to lcd backlight
+// toggles power to lcd backlight via transistor
 const int LCD_TRANSISTOR_PIN = 13;
 
 // delay in seconds for lcd backlight to remain on
@@ -100,19 +108,6 @@ int lcdTurnOffDelay = millis() / 1000;
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 
 
-
-void setup() {
-	Serial.begin(9600);
-	initializeLcdPanel();
-	initializeToggleButtons();
-	initializeStepperMotors();
-	initializeInfraredLed();
-}
-
-void loop() {
-	checkKeyPad();
-	checkToggleButton();
-}
 
 void initializeLcdPanel() {
 	Serial.println("Initializing LCD panel...");
@@ -128,39 +123,47 @@ void initializeLcdPanel() {
 void initializeToggleButtons() {
 	Serial.println("Initializing toggle buttons...");
 
-	for(int i = 0; i < TOOL_COUNT; i++){
-		pinMode(tools[i].togglePin, INPUT_PULLUP);
+	for(int i = 0; i < GATE_COUNT; i++){
+		pinMode(gates[i].togglePin, INPUT_PULLUP);
 	}
 }
 
 void initializeStepperMotors() {
-	for (int i = 0; i < TOOL_COUNT; i++) {
+	Serial.println("Initializing stepper motors...");
 
-		if (tools[i].stepperEnabled) {
-			tools[i].stepper.setMaxSpeed(5000);
-			tools[i].stepper.setAcceleration(5000);
+	for (int i = 0; i < GATE_COUNT; i++) {
 
-			pinMode(tools[i].sleepPin, OUTPUT);
+		if (gates[i].stepperEnabled) {
+			gates[i].stepper.setMaxSpeed(STEPPER_MAX_SPEED);
+			gates[i].stepper.setAcceleration(STEPPER_ACCELERATION);
+
+			pinMode(gates[i].sleepPin, OUTPUT);
 		}
 
 	}
 }
 
+// TODO
 void initializeInfraredLed() {
-	Serial.println("Initializing infrared led");
+	Serial.println("Initializing infrared LED...");
 }
 
+// TODO
 void toggleDustCollector() {
 	Serial.println("Transmitting dust collector signal");
 }
 
 void turnLcdBackLightOn() {
+	Serial.println("Turning on LCD BackLight...");
+
 	lcd.display();
 	digitalWrite(LCD_TRANSISTOR_PIN, HIGH);
 	lcdBackLightOn = true;
 }
 
 void turnLcdBackLightOff() {
+	Serial.println("Turning off LCD BackLight...");
+
 	lcd.noDisplay();
 	digitalWrite(LCD_TRANSISTOR_PIN, LOW);
 	lcdBackLightOn = false;
@@ -184,6 +187,7 @@ void printToLcd(String line1, String line2) {
 }
 
 void updateLcd() {
+	// turn off LCD backlight after given period of time
 	if(lcdBackLightOn && ((millis() / 1000) - lcdTurnOffDelay > LCD_BACKLIGHT_DELAY)){
 		turnLcdBackLightOff();
 	}
@@ -201,38 +205,38 @@ void checkKeyPad() {
 				cancelMenu();
 
 			} else if(key == '#') {
-				cycleMenus();
+				cycleMenu();
 			}
 
 		} else if(isNumberKey(key)) {
 
-			if (toolCommandType == NULL) {
+			if (actionType == NULL) {
 				selectInitialOptions(key);
 
-			} else if (toolCommandType == ToolCommandTypeOpenGateNumber) {
-				selectedToolNumber = (int) key;
-				openGate(selectedToolNumber - 1);
-				selectedToolNumber = NULL;
+			} else if (actionType == ActionTypeOpenGateNumber) {
+				selectedGateNumber = (int) key;
+				openGate(selectedGateNumber - 1);
+				selectedGateNumber = NULL;
 
-			} else if (toolCommandType == ToolCommandTypeCloseGateNumber) {
-				selectedToolNumber = (int) key;
-				closeGate(selectedToolNumber - 1);
-				selectedToolNumber = NULL;
+			} else if (actionType == ActionTypeCloseGateNumber) {
+				selectedGateNumber = (int) key;
+				closeGate(selectedGateNumber - 1);
+				selectedGateNumber = NULL;
 
-			} else if (toolCommandType == ToolCommandTypeOpenGateIncrementally) {
+			} else if (actionType == ActionTypeOpenGateIncrementally) {
 				printToLcd("Select a value", "to open by...");
-				if (selectedToolNumber == NULL) {
-					selectedToolNumber = (int) key;
+				if (selectedGateNumber == NULL) {
+					selectedGateNumber = (int) key;
 				} else {
-					openGateIncrementally(selectedToolNumber - 1, (int) key);
+					openGateIncrementally(selectedGateNumber - 1, (int) key);
 				}
 
-			} else if (toolCommandType == ToolCommandTypeCloseGateIncrementally) {
+			} else if (actionType == ActionTypeCloseGateIncrementally) {
 				printToLcd("Select a value", "to close by...");
-				if (selectedToolNumber == NULL) {
-					selectedToolNumber = (int) key;
+				if (selectedGateNumber == NULL) {
+					selectedGateNumber = (int) key;
 				} else {
-					closeGateIncrementally(selectedToolNumber - 1, (int) key);
+					closeGateIncrementally(selectedGateNumber - 1, (int) key);
 				}
 			}
 		}
@@ -241,12 +245,12 @@ void checkKeyPad() {
 
 void cancelMenu() {
 	menuSelectionState = MenuSelectionStateDefault;
-	toolCommandType = NULL;
-	selectedToolNumber = NULL;
+	actionType = NULL;
+	selectedGateNumber = NULL;
 	printDefaultMessage();
 }
 
-void cycleMenus() {
+void cycleMenu() {
 	if (menuSelectionState == MenuSelectionStateDefault) {
 		menuSelectionState == MenuSelectionStatePageOne;
 		printToLcd("1: Open Gates", "2: Close Gates");
@@ -267,31 +271,31 @@ void cycleMenus() {
 
 void selectInitialOptions(char key) {
 	if (key == '1') {
-		toolCommandType = ToolCommandTypeOpenAllGates;
+		actionType = ActionTypeOpenAllGates;
 		printToLcd("Opening All", "Gates...");
 		openAllGates();
 		printToLcd("Gates Opened", "");
 
 	} else if (key == '2') {
-		toolCommandType = ToolCommandTypeCloseAllGates;
+		actionType = ActionTypeCloseAllGates;
 		printToLcd("Closing All", "Gates...");
 		closeAllGates(NULL);
 		printToLcd("Gates Closed", "");
 
 	} else if (key == '3') {
-		toolCommandType = ToolCommandTypeOpenGateNumber;
+		actionType = ActionTypeOpenGateNumber;
 		printToLcd("Select Gate", "Number");
 
 	} else if (key == '4') {
-		toolCommandType = ToolCommandTypeCloseGateNumber;
+		actionType = ActionTypeCloseGateNumber;
 		printToLcd("Select Gate", "Number");
 
 	} else if (key == '5') {
-		toolCommandType = ToolCommandTypeOpenGateIncrementally;
+		actionType = ActionTypeOpenGateIncrementally;
 		printToLcd("Select Gate", "Number");
 
 	} else if (key == '6') {
-		toolCommandType = ToolCommandTypeCloseGateIncrementally;
+		actionType = ActionTypeCloseGateIncrementally;
 		printToLcd("Select Gate", "Number");
 	}
 }
@@ -309,13 +313,13 @@ boolean isNumberKey(char c) {
 }
 
 void checkToggleButton() {
-	for (int i = 0; i < TOOL_COUNT; i++) {
+	for (int i = 0; i < GATE_COUNT; i++) {
 
-		if (digitalRead(tools[i].togglePin) == LOW) {
+		if (digitalRead(gates[i].togglePin) == LOW) {
 
 			toggleDustCollector();
 
-			if (!tools[i].open) {
+			if (!gates[i].open) {
 				closeAllGates(i);
 				openGate(i);
 			}
@@ -327,10 +331,10 @@ void checkToggleButton() {
 }
 
 void openAllGates() {
-	Serial.println("Closing all tools");
+	Serial.println("Closing all gates");
 
-	for(int i = 0; i < TOOL_COUNT; i++){
-		if(!tools[i].open){
+	for(int i = 0; i < GATE_COUNT; i++){
+		if(!gates[i].open){
 			openGate(i);
 		}
 	}
@@ -339,25 +343,25 @@ void openAllGates() {
 void openGate(int index) {
 	Serial.println("Opening tool " + index);
 
-	printToLcd("Opening Gate " + String(index) + " for the " + tools[index].name, "");
-	tools[index].open = true;
+	printToLcd("Opening Gate " + String(index) + " for the " + gates[index].name, "");
+	gates[index].open = true;
 
-	long newPosition = tools[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
+	long newPosition = gates[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
 	moveGate(index, newPosition);
 }
 
 void openGateIncrementally(int index, int value) {
 	int revolutions = getRevolutions(value);
 	Serial.println("Opening tool " + String(index) + " amount: " + String(revolutions));
-	long newPosition = tools[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * revolutions);
+	long newPosition = gates[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * revolutions);
 	moveGate(index, newPosition);
 }
 
 void closeAllGates(int index) {
-	Serial.println("Closing all tools");
+	Serial.println("Closing all gates");
 
-	for(int i = 0; i < TOOL_COUNT; i++){
-		if(index != i && tools[i].open){
+	for(int i = 0; i < GATE_COUNT; i++){
+		if(index != i && gates[i].open){
 			closeGate(i);
 		}
 	}
@@ -365,40 +369,56 @@ void closeAllGates(int index) {
 
 void closeGate(int index) {
 	Serial.println("Closing tool " + index);
-	tools[index].open = false;
-	long newPosition = tools[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
+	gates[index].open = false;
+	long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
 	moveGate(index, newPosition);
 }
 
 void closeGateIncrementally(int index, int value) {
 	int revolutions = getRevolutions(value);
 	Serial.println("Opening tool " + String(index) + " amount: " + String(revolutions));
-	long newPosition = tools[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * revolutions);
+	long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * revolutions);
 	moveGate(index, newPosition);
 }
 
 void moveGate(int index, long newPosition) {
 	wakeTool(index);
-	tools[index].stepper.runToNewPosition(newPosition);
+	gates[index].stepper.runToNewPosition(newPosition);
 	sleepTool(index);
 }
 
-int getRevolutions(int value) {
+float getRevolutions(int value) {
+	// numbers will be 10ths of a revolution except 0 which will be treated as 10 thus 1 full revolution
 	if (value == 0) {
-		return 1;
-	} else {
-		return value / 10;
+		return 1.0;
 	}
 
-	return 0;
+	return (float) value / 10.0;
 }
 
 void wakeTool(int index) {
-	Serial.println("Waking tool " + index);
-	digitalWrite(tools[index].sleepPin, HIGH);
+	Serial.println("Waking " + gates[index].name + " gate");
+	digitalWrite(gates[index].sleepPin, HIGH);
 }
 
 void sleepTool(int index) {
-	Serial.println("Sleeping tool " + index);
-	digitalWrite(tools[index].sleepPin, LOW);
+	Serial.println("Sleeping " + gates[index].name + " gate");
+	digitalWrite(gates[index].sleepPin, LOW);
+}
+
+
+
+// Main Program Methods
+void setup() {
+	Serial.begin(9600);
+	initializeLcdPanel();
+	initializeToggleButtons();
+	initializeStepperMotors();
+	initializeInfraredLed();
+}
+
+void loop() {
+	checkKeyPad();
+	checkToggleButton();
+	updateLcd();
 }

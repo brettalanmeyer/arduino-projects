@@ -20,7 +20,7 @@ const int REVOLUTIONS_PER_CYCLE = 12.8;
 const int STEPPER_MAX_SPEED = 5000;
 const int STEPPER_ACCELERATION = 5000;
 
-// initializing stepper motors
+// defining stepper motors, interface type, step pin, direction pin
 AccelStepper stepperJointer		(EASY_DRIVER_INTERFACE,	52,	50);
 AccelStepper stepperDrillPress	(EASY_DRIVER_INTERFACE,	44,	42);
 AccelStepper stepperSanders		(EASY_DRIVER_INTERFACE,	36,	34);
@@ -201,43 +201,50 @@ void checkKeyPad() {
 
 		if (isControlKey(key)) {
 
-			if (key == '*') {
-				cancelMenu();
-
-			} else if(key == '#') {
-				cycleMenu();
+			switch (key) {
+				case '*':
+					cancelMenu();
+					break;
+				case '#':
+					cycleMenu();
+					break;
 			}
 
 		} else if(isNumberKey(key)) {
 
-			if (actionType == NULL) {
-				selectInitialOptions(key);
+			int num = (int) key;
 
-			} else if (actionType == ActionTypeOpenGateNumber) {
-				selectedGateNumber = (int) key;
-				openGate(selectedGateNumber - 1);
-				selectedGateNumber = NULL;
+			switch (actionType) {
 
-			} else if (actionType == ActionTypeCloseGateNumber) {
-				selectedGateNumber = (int) key;
-				closeGate(selectedGateNumber - 1);
-				selectedGateNumber = NULL;
+				case NULL:
+					selectInitialOptions(key);
+					break;
 
-			} else if (actionType == ActionTypeOpenGateIncrementally) {
-				printToLcd("Select a value", "to open by...");
-				if (selectedGateNumber == NULL) {
-					selectedGateNumber = (int) key;
-				} else {
-					openGateIncrementally(selectedGateNumber - 1, (int) key);
-				}
+				case ActionTypeOpenGateNumber:
+					openGate(num - 1);
+					break;
 
-			} else if (actionType == ActionTypeCloseGateIncrementally) {
-				printToLcd("Select a value", "to close by...");
-				if (selectedGateNumber == NULL) {
-					selectedGateNumber = (int) key;
-				} else {
-					closeGateIncrementally(selectedGateNumber - 1, (int) key);
-				}
+				case ActionTypeCloseGateNumber:
+					closeGate(num - 1);
+					break;
+
+				case ActionTypeOpenGateIncrementally:
+					printToLcd("Select a value", "to open by...");
+					if (selectedGateNumber == NULL) {
+						selectedGateNumber = (int) key;
+					} else {
+						openGateIncrementally(selectedGateNumber - 1, num);
+					}
+					break;
+
+				case ActionTypeCloseGateIncrementally:
+					printToLcd("Select a value", "to close by...");
+					if (selectedGateNumber == NULL) {
+						selectedGateNumber = (int) key;
+					} else {
+						closeGateIncrementally(selectedGateNumber - 1, num);
+					}
+					break;
 			}
 		}
 	}
@@ -251,21 +258,28 @@ void cancelMenu() {
 }
 
 void cycleMenu() {
-	if (menuSelectionState == MenuSelectionStateDefault) {
-		menuSelectionState == MenuSelectionStatePageOne;
-		printToLcd("1: Open Gates", "2: Close Gates");
 
-	} else if (menuSelectionState == MenuSelectionStatePageOne) {
-		menuSelectionState == MenuSelectionStatePageTwo;
-		printToLcd("3: Open Gate#", "4: Close Gate#");
+	switch (menuSelectionState) {
 
-	} else if (menuSelectionState == MenuSelectionStatePageTwo) {
-		menuSelectionState == MenuSelectionStatePageThree;
-		printToLcd("5: OpenX Gate#", "6: CloseX Gate#");
+		case MenuSelectionStateDefault:
+			menuSelectionState == MenuSelectionStatePageOne;
+			printToLcd("1: Open Gates", "2: Close Gates");
+			break;
 
-	} else if (menuSelectionState == MenuSelectionStatePageThree) {
-		menuSelectionState == MenuSelectionStateDefault;
-		printDefaultMessage();
+		case MenuSelectionStatePageOne:
+			menuSelectionState == MenuSelectionStatePageTwo;
+			printToLcd("3: Open Gate#", "4: Close Gate#");
+			break;
+
+		case MenuSelectionStatePageTwo:
+			menuSelectionState == MenuSelectionStatePageThree;
+			printToLcd("5: OpenX Gate#", "6: CloseX Gate#");
+			break;
+
+		case MenuSelectionStatePageThree:
+			menuSelectionState == MenuSelectionStateDefault;
+			printDefaultMessage();
+			break;
 	}
 }
 
@@ -301,7 +315,7 @@ void selectInitialOptions(char key) {
 }
 
 boolean isLetterKey(char c) {
-	return (c == 'A' || c == 'B' || c == 'C' || c == 'D');
+	return (c >= 'A' || c <= 'D');
 }
 
 boolean isControlKey(char c) {
@@ -309,7 +323,7 @@ boolean isControlKey(char c) {
 }
 
 boolean isNumberKey(char c) {
-	return (c == '0' || c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '6' || c == '7' || c == '8' || c == '9');
+	return (c >= '0' || c <= '9');
 }
 
 void checkToggleButton() {
@@ -351,7 +365,7 @@ void openGate(int index) {
 }
 
 void openGateIncrementally(int index, int value) {
-	int revolutions = getRevolutions(value);
+	float revolutions = getRevolutions(value);
 	Serial.println("Opening tool " + String(index) + " amount: " + String(revolutions));
 	long newPosition = gates[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * revolutions);
 	moveGate(index, newPosition);
@@ -375,7 +389,7 @@ void closeGate(int index) {
 }
 
 void closeGateIncrementally(int index, int value) {
-	int revolutions = getRevolutions(value);
+	float revolutions = getRevolutions(value);
 	Serial.println("Opening tool " + String(index) + " amount: " + String(revolutions));
 	long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * revolutions);
 	moveGate(index, newPosition);

@@ -27,31 +27,33 @@ AccelStepper stepper4 (EASY_DRIVER_INTERFACE,	28,	26);
 AccelStepper stepper5 (EASY_DRIVER_INTERFACE,	53,	51);
 AccelStepper stepper6 (EASY_DRIVER_INTERFACE,	45,	43);
 AccelStepper stepper7 (EASY_DRIVER_INTERFACE,	37,	35);
+AccelStepper stepper8 (EASY_DRIVER_INTERFACE,	29,	27);
 
 // pins and stepper motors for toggling, waking, and sleeping motors
 struct Gate {
-	// pin for toggle buttons to open/close gate
-	int togglePin;
-	// determines if stepper is used at this gate
-	boolean stepperEnabled;
 	// stepper object
 	AccelStepper stepper;
-	// is stepper currently open
-	boolean open;
+
+	// pin for toggle buttons to open/close gate
+	int togglePin;
+
 	// pin to control sleep/wake
 	int sleepPin;
+
+		// is stepper currently open
+	boolean isOpen;
 };
 
 // define pins and steppers for each gate
 Gate gates[GATE_COUNT] = {
-	{ 46,	true,	stepper1,	false,	48		},
-	{ 38,	true,	stepper2,	false,	40		},
-	{ 30,	true,	stepper3,	false,	32		},
-	{ 22,	true,	stepper4,	false,	24		},
-	{ 47,	true,	stepper5,	false,	49		},
-	{ 39,	true,	stepper6,	false,	41		},
-	{ 31,	true,	stepper7,	false,	33		},
-	{ 2,	false,	NULL,		false,	NULL	},
+	{ stepper1, 48, 46, false },
+	{ stepper2, 40, 38, false },
+	{ stepper3, 32, 30, false },
+	{ stepper4, 24, 22, false },
+	{ stepper5, 49, 47, false },
+	{ stepper6, 41, 39, false },
+	{ stepper7, 33, 31, false },
+	{ stepper8, 25, 23, false },
 };
 
 void initializeToggleButtons() {
@@ -91,7 +93,7 @@ void checkToggleButton() {
 		if (digitalRead(gates[i].togglePin) == LOW) {
 			toggleDustCollector();
 
-			if (!gates[i].open) {
+			if (!gates[i].isOpen) {
 				openGate(i);
 				closeAllGates(i);
 			}
@@ -103,7 +105,7 @@ void checkToggleButton() {
 void openGate(int index) {
 	Serial.println("Opening tool " + index);
 
-	gates[index].open = true;
+	gates[index].isOpen = true;
 
 	long newPosition = gates[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
 	moveGate(index, newPosition);
@@ -113,7 +115,7 @@ void closeAllGates(int index) {
 	Serial.println("Closing all gates");
 
 	for(int i = 0; i < GATE_COUNT; i++){
-		if(index != i && gates[i].open){
+		if(index != i && gates[i].isOpen){
 			closeGate(i);
 		}
 	}
@@ -121,7 +123,7 @@ void closeAllGates(int index) {
 
 void closeGate(int index) {
 	Serial.println("Closing tool " + index);
-	gates[index].open = false;
+	gates[index].isOpen = false;
 	long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
 	moveGate(index, newPosition);
 }

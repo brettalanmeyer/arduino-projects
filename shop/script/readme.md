@@ -55,7 +55,17 @@ Connections and cabling will be made using RJ45 and RJ11 ports.
 
 Use outside two pins. Wire one to EasyDriver GND and other to Blue on ethernet.
 
-## Diagrams
+## Images
+
+### Arduino Mega 2560
+
+<img src="arduino-mega-2560.png">
+
+### EasyDriver Shield
+
+<img src="easy-driver.jpg">
+
+### Sample Stepper Motor Wiring Diagram
 
 <img src="stepper-motor-arduino-wiring-diagram.jpg">
 

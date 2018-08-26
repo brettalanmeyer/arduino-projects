@@ -1,93 +1,60 @@
-# Blast Gate project
+# Blast Gate project - Arduino Mega 2560
+
+This script controls the opening and closing of dust collection blast gates
+using stepper motors, flexible couplings, ACME lead screws, and ACME lead screw nuts.
+
+Motors: Stepper Motor Nema 17 Bipolar 40mm 64oz.in(45Ncm) 2A 4 Lead 3D
+Control Board: Gikfun EasyDriver Shield Stepper Motor Driver V44 A3967 For Arduino EK1204
+
+## Wiring for Arduino Mega 2560
+
+Connections and cabling will be made using RJ45 and RJ11 ports.
+
+### Arduino Mega Pinouts
+
+|            | AccelStepper Pin1 | AccelStepper Pin2 | TogglePin | SleepPin   |
+|------------|-------------------|-------------------|-----------|------------|
+| Motor 1    | 52                | 50                | 48        | 46         |
+| Motor 2    | 44                | 42                | 40        | 38         |
+| Motor 3    | 36                | 34                | 32        | 30         |
+| Motor 4    | 28                | 26                | 24        | 22         |
+| Motor 5    | 53                | 51                | 49        | 47         |
+| Motor 6    | 45                | 43                | 41        | 39         |
+| Motor 7    | 37                | 35                | 33        | 31         |
+| Motor 8    | 29                | 27                | 25        | 23         |
+| Wire Color | Green             | Green/White       | Blue      | Blue/White |
+
+
+### Stepper Motor Pinouts
+
+|            | A+  | A-   | B+    | B-     |
+|------------|-----|------|-------|--------|
+| Wire Color | Red | Blue | Green | Yellow |
+
+
+### EasyDriver Pinout
+
+|            | 12v GND     | 12v M+ | GND        | STEP  | DIR         | SLP        |
+|------------|-------------|--------|------------|-------|-------------|------------|
+| Wire Color | Orange/White| Orange | Blue/White | Green | Green/White | Blue/White |
+
+
+### Ethernet Pinouts
+
+|            | Motor Pin1 | Motor Pin2  | Toggle | Sleep      | 12v +  | 12v GND      | N/A   | Arduino GND |
+|------------|------------|-------------|--------|------------|--------|--------------|-------|-------------|
+| Wire Color | Green      | Green/White | Blue   | Blue/White | Orange | Orange/White | Brown | Brown/White |
+
+
+### AccelStepper Pins
+
+Pin1: Arduino digital pin number for motor pin 1. Defaults to pin 2. For a AccelStepper::DRIVER (interface==1), this is the Step input to the driver. Low to high transition means to step)
+Pin2: Arduino digital pin number for motor pin 2. Defaults to pin 3. For a AccelStepper::DRIVER (interface==1), this is the Direction input the driver. High means forward.
+
+
 
 ## Resources
 
 * http://www.airspayce.com/mikem/arduino/AccelStepper/annotated.html
 * https://brainy-bits.com/blogs/tutorials/setting-stepper-motors-home-position-using-accelstepper
 * https://brainy-bits.com
-
-
-
-
-
-## Prompts
-
-All gates start off closed
-Program initializes
-LCD
-
-
-
-Open All Gates
-Close All Gates
-Open Gate #
-Open Gate # Incrementally
-Close Gate #
-Close Gate # Incrementally
-
-
-
-	Brett's Shop
-	# for options
-
-	>> #
-	1: Open Gates
-	2: Close Gates
-
-	>> #
-	3: Open Gate #
-	4: Close Gate #
-
-	>> #
-	5: OpenX Gate #
-	6: CloseX Gate #
-
-	>> #
-	Brett's Shop
-	# for options
-
-	>> 1
-
-
-
-
-
-# Pin Outs
-
-## LCD pin out
-VSS	ground
-VDD	+5v
-V0	pot middle pin
-RS	7
-RW	ground
-E	8
-D0
-D1
-D2
-D3
-D4	9
-D5	10
-D6	11
-D7	12
-A	+5v
-K	transistor right
-
-## Transistor pin out (flat part is front)
-left		ground (arduino)
-middle	13 (arduino)
-right	K (lcd)
-
-## 10k potentiometer (bottom has 2 pins)
-left		+5v (arduino)
-middle	V0 (lcd)
-right	ground (arduino)
-
-## Keypad pinout - left most pin on keypad is 8
-8: 29
-7: 27
-6: 25
-5: 23
-4: 3
-3: 4
-2: 5
-1: 6

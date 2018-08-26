@@ -25,6 +25,12 @@ Connections and cabling will be made using RJ45 and RJ11 ports.
 | Wire Color | Green             | Green/White       | Blue      | Blue/White |
 
 
+#### AccelStepper Pins
+
+**Pin1:** Arduino digital pin number for motor pin 1. Defaults to pin 2. For a AccelStepper::DRIVER (interface==1), this is the Step input to the driver. Low to high transition means to step)
+
+**Pin2:** Arduino digital pin number for motor pin 2. Defaults to pin 3. For a AccelStepper::DRIVER (interface==1), this is the Direction input the driver. High means forward.
+
 ### Stepper Motor Pinouts
 
 |            | A+  | A-   | B+    | B-     |
@@ -39,17 +45,15 @@ Connections and cabling will be made using RJ45 and RJ11 ports.
 | Wire Color | Orange/White| Orange | Blue/White | Green | Green/White | Blue/White |
 
 
-### Ethernet Pinouts
+### Ethernet RJ45 Pinouts
 
 |            | Motor Pin1 | Motor Pin2  | Toggle | Sleep      | 12v +  | 12v GND      | N/A   | Arduino GND |
 |------------|------------|-------------|--------|------------|--------|--------------|-------|-------------|
 | Wire Color | Green      | Green/White | Blue   | Blue/White | Orange | Orange/White | Brown | Brown/White |
 
+### Ethernet RJ11 Pinouts
 
-### AccelStepper Pins
-
-Pin1: Arduino digital pin number for motor pin 1. Defaults to pin 2. For a AccelStepper::DRIVER (interface==1), this is the Step input to the driver. Low to high transition means to step)
-Pin2: Arduino digital pin number for motor pin 2. Defaults to pin 3. For a AccelStepper::DRIVER (interface==1), this is the Direction input the driver. High means forward.
+Use outside two pins. Wire one to EasyDriver GND and other to Blue on ethernet.
 
 ## Diagrams
 

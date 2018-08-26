@@ -51,7 +51,9 @@ Connections and cabling will be made using RJ45 and RJ11 ports.
 Pin1: Arduino digital pin number for motor pin 1. Defaults to pin 2. For a AccelStepper::DRIVER (interface==1), this is the Step input to the driver. Low to high transition means to step)
 Pin2: Arduino digital pin number for motor pin 2. Defaults to pin 3. For a AccelStepper::DRIVER (interface==1), this is the Direction input the driver. High means forward.
 
+## Diagrams
 
+<img src="stepper-motor-arduino-wiring-diagram.jpg">
 
 ## Resources
 

@@ -47,9 +47,10 @@ Connections and cabling will be made using RJ45 and RJ11 ports.
 
 ### Ethernet RJ45 Pinouts
 
-|            | Motor Pin1 | Motor Pin2  | Toggle | Sleep      | 12v +  | 12v GND      | N/A   | Arduino GND |
-|------------|------------|-------------|--------|------------|--------|--------------|-------|-------------|
-| Wire Color | Green      | Green/White | Blue   | Blue/White | Orange | Orange/White | Brown | Brown/White |
+|             | Motor Pin1 | Motor Pin2  | Toggle | Sleep      | 12v +  | 12v GND      | N/A   | Arduino GND |
+|-------------|------------|-------------|--------|------------|--------|--------------|-------|-------------|
+| Wire Color  | Green      | Green/White | Blue   | Blue/White | Orange | Orange/White | Brown | Brown/White |
+| Port Number | 1          | 2           | 3      | 4          | 5      | 6            | 7     | 8           |
 
 ### Ethernet RJ11 Pinouts
 

@@ -40,9 +40,9 @@ Connections and cabling will be made using RJ45 and RJ11 ports.
 
 ### EasyDriver Pinout
 
-|            | 12v GND     | 12v M+ | GND   | STEP  | DIR         | SLP        |
-|------------|-------------|--------|-------|-------|-------------|------------|
-| Wire Color | Orange/White| Orange | Brown | Green | Green/White | Blue/White |
+|            | 12v GND     | 12v M+ | GND         | STEP  | DIR         | SLP        |
+|------------|-------------|--------|-------------|-------|-------------|------------|
+| Wire Color | Orange/White| Orange | Brown/White | Green | Green/White | Blue/White |
 
 
 ### Ethernet RJ45 Pinouts

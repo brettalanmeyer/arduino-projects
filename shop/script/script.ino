@@ -22,6 +22,7 @@ const int STEPPER_ACCELERATION = 5000;
 // slower speeds to avoid overshooting homing switches
 const int STEPPER_HOMING_MAX_SPEED = 100;
 const int STEPPER_HOMING_ACCELERATION = 100;
+const int HOMING_THRESHOLD = -10000;
 
 // declare stepper motors, interface type, step pin, direction pin
 AccelStepper stepper1 (EASY_DRIVER_INTERFACE,	52,	50);
@@ -113,6 +114,7 @@ void beginHomingProcedure() {
     Serial.println("Homing gate " + i);
 
     long initialPosition = -1;
+    bool gateExists = true;
     
     gates[i].stepper.setMaxSpeed(STEPPER_HOMING_MAX_SPEED);
     gates[i].stepper.setAcceleration(STEPPER_HOMING_ACCELERATION);
@@ -123,8 +125,18 @@ void beginHomingProcedure() {
       gates[i].stepper.run();
       initialPosition--;
       delay(5);
+
+      // switch was never activated which means gate is not connected
+      if (initialPosition < HOMING_THRESHOLD){
+        gateExists = false;
+        break;
+      }
     }
 
+    if (!gateExists) {
+      continue;  
+    }
+    
     Serial.println("Homing switch activated");
 
     gates[i].stepper.setCurrentPosition(0);
@@ -140,6 +152,7 @@ void beginHomingProcedure() {
 
     Serial.println("Homing switch deactivated");
 
+    gates[i].isEnabled = true;
     gates[i].stepper.setCurrentPosition(0);
     gates[i].stepper.setMaxSpeed(STEPPER_MAX_SPEED);
     gates[i].stepper.setAcceleration(STEPPER_ACCELERATION);
@@ -151,10 +164,13 @@ void checkToggleButton() {
 		if (digitalRead(gates[i].togglePin) == LOW) {
 			toggleDustCollector();
 
-			if (!gates[i].isOpen) {
-				openGate(i);
-				closeAllGates(i);
-			}
+      if (gates[i].isEnabled) {
+  			if (!gates[i].isOpen) {
+  				openGate(i);
+  				closeAllGates(i);
+  			}
+      }
+     
 			break;
 		}
 	}
@@ -205,7 +221,6 @@ void sleepGate(int index) {
 	digitalWrite(gates[index].sleepPin, LOW);
 }
 
-// Main Program Setup
 void setup() {
 	Serial.begin(9600);
 
@@ -219,7 +234,6 @@ void setup() {
   beginHomingProcedure();
 }
 
-// Main Program Loop
 void loop() {
 	checkToggleButton();
 }

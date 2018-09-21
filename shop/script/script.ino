@@ -15,9 +15,13 @@ const int STEPS_PER_REVOLUTION = 1600;
 // number of revolutions to open/close blast gate, around 4" of travel
 const int REVOLUTIONS_PER_CYCLE = 12.8;
 
-// stepper intialization values
+// speeds set for the quickest opening and closing
 const int STEPPER_MAX_SPEED = 5000;
 const int STEPPER_ACCELERATION = 5000;
+
+// slower speeds to avoid overshooting homing switches
+const int STEPPER_HOMING_MAX_SPEED = 100;
+const int STEPPER_HOMING_ACCELERATION = 100;
 
 // declare stepper motors, interface type, step pin, direction pin
 AccelStepper stepper1 (EASY_DRIVER_INTERFACE,	52,	50);
@@ -34,26 +38,32 @@ struct Gate {
 	// stepper object
 	AccelStepper stepper;
 
+  // gates are only enabled if bumper switch is triggered during homing process
+  boolean isEnabled;
+
+  // pin for homing bumper switch
+  int homingPin;
+
 	// pin for toggle buttons to open/close gate
 	int togglePin;
 
 	// pin to control sleep/wake
 	int sleepPin;
 
-		// is stepper currently open
+	// is stepper currently open
 	boolean isOpen;
 };
 
 // define pins and steppers for each gate
 Gate gates[GATE_COUNT] = {
-	{ stepper1, 48, 46, false },
-	{ stepper2, 40, 38, false },
-	{ stepper3, 32, 30, false },
-	{ stepper4, 24, 22, false },
-	{ stepper5, 49, 47, false },
-	{ stepper6, 41, 39, false },
-	{ stepper7, 33, 31, false },
-	{ stepper8, 25, 23, false },
+  { stepper1, false, 10, 48, 46, false },
+  { stepper2, false, 9,  40, 38, false },
+  { stepper3, false, 8,  32, 30, false },
+  { stepper4, false, 7,  24, 22, false },
+  { stepper5, false, 6,  49, 47, false },
+  { stepper6, false, 5,  41, 39, false },
+  { stepper7, false, 4,  33, 31, false },
+  { stepper8, false, 3,  25, 23, false },
 };
 
 void initializeToggleButtons() {
@@ -68,24 +78,72 @@ void initializeStepperMotors() {
 	Serial.println("Initializing stepper motors...");
 
 	for (int i = 0; i < GATE_COUNT; i++) {
-		if (gates[i].stepperEnabled) {
-			gates[i].stepper.setMaxSpeed(STEPPER_MAX_SPEED);
-			gates[i].stepper.setAcceleration(STEPPER_ACCELERATION);
-			pinMode(gates[i].sleepPin, OUTPUT);
-		}
+    pinMode(gates[i].sleepPin, OUTPUT);
 	}
 }
 
 void initializeDustCollector() {
 	Serial.println("Initializing dust collector...");
+ 
 	pinMode(DUST_COLLECTOR_PIN, OUTPUT);
 }
 
+void initializeHomingSwitches() {
+  Serial.println("Initializing homing switches...");
+  
+  for (int i = 0; i < GATE_COUNT; i++) {
+    pinMode(gates[i].homingPin, INPUT_PULLUP);
+  }
+}
+
 void toggleDustCollector() {
-	Serial.println("Toggling dust collector remote");
-	digitalWrite(DUST_COLLECTOR_PIN, HIGH);
-    delay(250);
-    digitalWrite(DUST_COLLECTOR_PIN, LOW);
+  Serial.println("Toggling dust collector remote");
+  
+  digitalWrite(DUST_COLLECTOR_PIN, HIGH);
+  delay(250);
+  digitalWrite(DUST_COLLECTOR_PIN, LOW);
+}
+
+void beginHomingProcedure() {
+  Serial.println("Beginning homing procedure...");
+  
+  delay(250);
+
+  for (int i = 0; i < GATE_COUNT; i++) {
+    Serial.println("Homing gate " + i);
+
+    long initialPosition = -1;
+    
+    gates[i].stepper.setMaxSpeed(STEPPER_HOMING_MAX_SPEED);
+    gates[i].stepper.setAcceleration(STEPPER_HOMING_ACCELERATION);
+
+    // move until switch is activated
+    while (digitalRead(gates[i].homingPin)) {
+      gates[i].stepper.moveTo(initialPosition);
+      gates[i].stepper.run();
+      initialPosition--;
+      delay(5);
+    }
+
+    Serial.println("Homing switch activated");
+
+    gates[i].stepper.setCurrentPosition(0);
+    initialPosition = 1;
+
+    // backoff switch until is deactivated
+    while (!digitalRead(gates[i].homingPin)) {
+      gates[i].stepper.moveTo(initialPosition);  
+      gates[i].stepper.run();
+      initialPosition++;
+      delay(5);
+    }
+
+    Serial.println("Homing switch deactivated");
+
+    gates[i].stepper.setCurrentPosition(0);
+    gates[i].stepper.setMaxSpeed(STEPPER_MAX_SPEED);
+    gates[i].stepper.setAcceleration(STEPPER_ACCELERATION);
+  }
 }
 
 void checkToggleButton() {
@@ -103,7 +161,7 @@ void checkToggleButton() {
 }
 
 void openGate(int index) {
-	Serial.println("Opening tool " + index);
+	Serial.println("Opening gate " + index);
 
 	gates[index].isOpen = true;
 
@@ -122,34 +180,43 @@ void closeAllGates(int index) {
 }
 
 void closeGate(int index) {
-	Serial.println("Closing tool " + index);
+	Serial.println("Closing gate " + index);
+  
 	gates[index].isOpen = false;
 	long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
 	moveGate(index, newPosition);
 }
 
 void moveGate(int index, long newPosition) {
-	wakeTool(index);
+	wakeGate(index);
 	gates[index].stepper.runToNewPosition(newPosition);
-	sleepTool(index);
+	sleepGate(index);
 }
 
-void wakeTool(int index) {
+void wakeGate(int index) {
 	Serial.println("Waking gate " + index);
+ 
 	digitalWrite(gates[index].sleepPin, HIGH);
 }
 
-void sleepTool(int index) {
+void sleepGate(int index) {
 	Serial.println("Sleeping gate " + index);
+ 
 	digitalWrite(gates[index].sleepPin, LOW);
 }
 
 // Main Program Setup
 void setup() {
 	Serial.begin(9600);
-	initializeToggleButtons();
-	initializeStepperMotors();
+
+  initializeStepperMotors();
+  initializeToggleButtons();
+	initializeHomingSwitches();
 	initializeDustCollector();
+
+  delay(250);
+
+  beginHomingProcedure();
 }
 
 // Main Program Loop

@@ -1,4 +1,11 @@
 #include <AccelStepper.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+// setup oled display
+Adafruit_SSD1306 display(4);
 
 // number of gates to configure
 const int GATE_COUNT = 8;
@@ -25,19 +32,19 @@ const int STEPPER_HOMING_ACCELERATION = 100;
 const int HOMING_THRESHOLD = -10000;
 
 // declare stepper motors, interface type, step pin, direction pin
-AccelStepper stepper1 (EASY_DRIVER_INTERFACE,	52,	50);
-AccelStepper stepper2 (EASY_DRIVER_INTERFACE,	44,	42);
-AccelStepper stepper3 (EASY_DRIVER_INTERFACE,	36,	34);
-AccelStepper stepper4 (EASY_DRIVER_INTERFACE,	28,	26);
-AccelStepper stepper5 (EASY_DRIVER_INTERFACE,	53,	51);
-AccelStepper stepper6 (EASY_DRIVER_INTERFACE,	45,	43);
-AccelStepper stepper7 (EASY_DRIVER_INTERFACE,	37,	35);
-AccelStepper stepper8 (EASY_DRIVER_INTERFACE,	29,	27);
+AccelStepper stepper1 (EASY_DRIVER_INTERFACE, 52, 50);
+AccelStepper stepper2 (EASY_DRIVER_INTERFACE, 44, 42);
+AccelStepper stepper3 (EASY_DRIVER_INTERFACE, 36, 34);
+AccelStepper stepper4 (EASY_DRIVER_INTERFACE, 28, 26);
+AccelStepper stepper5 (EASY_DRIVER_INTERFACE, 53, 51);
+AccelStepper stepper6 (EASY_DRIVER_INTERFACE, 45, 43);
+AccelStepper stepper7 (EASY_DRIVER_INTERFACE, 37, 35);
+AccelStepper stepper8 (EASY_DRIVER_INTERFACE, 29, 27);
 
 // pins and stepper motors for toggling, waking, and sleeping motors
 struct Gate {
-	// stepper object
-	AccelStepper stepper;
+  // stepper object
+  AccelStepper stepper;
 
   // gates are only enabled if bumper switch is triggered during homing process
   boolean isEnabled;
@@ -45,14 +52,14 @@ struct Gate {
   // pin for homing bumper switch
   int homingPin;
 
-	// pin for toggle buttons to open/close gate
-	int togglePin;
+  // pin for toggle buttons to open/close gate
+  int togglePin;
 
-	// pin to control sleep/wake
-	int sleepPin;
+  // pin to control sleep/wake
+  int sleepPin;
 
-	// is stepper currently open
-	boolean isOpen;
+  // is stepper currently open
+  boolean isOpen;
 };
 
 // define pins and steppers for each gate
@@ -67,26 +74,45 @@ Gate gates[GATE_COUNT] = {
   { stepper8, false, 3,  25, 23, false },
 };
 
-void initializeToggleButtons() {
-	Serial.println("Initializing toggle buttons...");
+void initializeDisplay() {
+  // generate the high voltage from the 3.3v line internally
+  // initialize with the I2C addr 0x3C (for the 128x32)
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 
-	for(int i = 0; i < GATE_COUNT; i++){
-		pinMode(gates[i].togglePin, INPUT_PULLUP);
-	}
+  // show image buffer on the display hardware
+  // since the buffer is intialized with an Adafruit splashscreen
+  // internally, this will display the splashscreen
+  display.display();
+  
+  delay(1000);
+
+  // clear the buffer
+  display.clearDisplay();
+
+  // set default text color
+  display.setTextColor(WHITE);
+}
+
+void initializeToggleButtons() {
+  Serial.println("Initializing toggle buttons...");
+
+  for(int i = 0; i < GATE_COUNT; i++){
+    pinMode(gates[i].togglePin, INPUT_PULLUP);
+  }
 }
 
 void initializeStepperMotors() {
-	Serial.println("Initializing stepper motors...");
+  Serial.println("Initializing stepper motors...");
 
-	for (int i = 0; i < GATE_COUNT; i++) {
+  for (int i = 0; i < GATE_COUNT; i++) {
     pinMode(gates[i].sleepPin, OUTPUT);
-	}
+  }
 }
 
 void initializeDustCollector() {
-	Serial.println("Initializing dust collector...");
+  Serial.println("Initializing dust collector...");
  
-	pinMode(DUST_COLLECTOR_PIN, OUTPUT);
+  pinMode(DUST_COLLECTOR_PIN, OUTPUT);
 }
 
 void initializeHomingSwitches() {
@@ -112,6 +138,7 @@ void beginHomingProcedure() {
 
   for (int i = 0; i < GATE_COUNT; i++) {
     Serial.println("Homing gate " + i);
+    printToDisplay("Homing...", i);
 
     long initialPosition = -1;
     bool gateExists = true;
@@ -160,74 +187,87 @@ void beginHomingProcedure() {
 }
 
 void checkToggleButton() {
-	for (int i = 0; i < GATE_COUNT; i++) {
-		if (digitalRead(gates[i].togglePin) == LOW) {
-			toggleDustCollector();
+  for (int i = 0; i < GATE_COUNT; i++) {
+    if (digitalRead(gates[i].togglePin) == LOW) {
+      toggleDustCollector();
 
       if (gates[i].isEnabled) {
-  			if (!gates[i].isOpen) {
-  				openGate(i);
-  				closeAllGates(i);
-  			}
+        if (!gates[i].isOpen) {
+          openGate(i);
+          closeAllGates(i);
+        }
       }
      
-			break;
-		}
-	}
+      break;
+    }
+  }
 }
 
 void openGate(int index) {
-	Serial.println("Opening gate " + index);
+  Serial.println("Opening gate " + index);
+  printToDisplay("Opening...", index);
 
-	gates[index].isOpen = true;
+  gates[index].isOpen = true;
 
-	long newPosition = gates[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
-	moveGate(index, newPosition);
+  long newPosition = gates[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
+  moveGate(index, newPosition);
 }
 
 void closeAllGates(int index) {
-	Serial.println("Closing all gates");
+  Serial.println("Closing all gates");
 
-	for(int i = 0; i < GATE_COUNT; i++){
-		if(index != i && gates[i].isOpen){
-			closeGate(i);
-		}
-	}
+  for(int i = 0; i < GATE_COUNT; i++){
+    if(index != i && gates[i].isOpen){
+      closeGate(i);
+    }
+  }
 }
 
 void closeGate(int index) {
-	Serial.println("Closing gate " + index);
+  Serial.println("Closing gate " + index);
   
-	gates[index].isOpen = false;
-	long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
-	moveGate(index, newPosition);
+  gates[index].isOpen = false;
+  long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
+  moveGate(index, newPosition);
 }
 
 void moveGate(int index, long newPosition) {
-	wakeGate(index);
-	gates[index].stepper.runToNewPosition(newPosition);
-	sleepGate(index);
+  wakeGate(index);
+  gates[index].stepper.runToNewPosition(newPosition);
+  sleepGate(index);
 }
 
 void wakeGate(int index) {
-	Serial.println("Waking gate " + index);
+  Serial.println("Waking gate " + index);
  
-	digitalWrite(gates[index].sleepPin, HIGH);
+  digitalWrite(gates[index].sleepPin, HIGH);
 }
 
 void sleepGate(int index) {
-	Serial.println("Sleeping gate " + index);
+  Serial.println("Sleeping gate " + index);
  
-	digitalWrite(gates[index].sleepPin, LOW);
+  digitalWrite(gates[index].sleepPin, LOW);
+}
+
+void printToDisplay(String line, int gate) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println(line);
+
+  display.setTextSize(3);
+  display.println("Gate #" + gate);
+  display.display();
 }
 
 void setup() {
-	Serial.begin(9600);
+  Serial.begin(9600);
 
+  initializeDisplay();
   initializeStepperMotors();
   initializeToggleButtons();
-	initializeHomingSwitches();
-	initializeDustCollector();
+  initializeHomingSwitches();
+  initializeDustCollector();
 
   delay(250);
 
@@ -235,5 +275,5 @@ void setup() {
 }
 
 void loop() {
-	checkToggleButton();
+  checkToggleButton();
 }

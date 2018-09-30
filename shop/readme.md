@@ -12,17 +12,17 @@ Connections and cabling will be made using RJ45 and RJ11 ports.
 
 ### Arduino Mega Pinouts
 
-|            | AccelStepper Pin1 | AccelStepper Pin2 | TogglePin | SleepPin   |
-|------------|-------------------|-------------------|-----------|------------|
-| Motor 1    | 52                | 50                | 48        | 46         |
-| Motor 2    | 44                | 42                | 40        | 38         |
-| Motor 3    | 36                | 34                | 32        | 30         |
-| Motor 4    | 28                | 26                | 24        | 22         |
-| Motor 5    | 53                | 51                | 49        | 47         |
-| Motor 6    | 45                | 43                | 41        | 39         |
-| Motor 7    | 37                | 35                | 33        | 31         |
-| Motor 8    | 29                | 27                | 25        | 23         |
-| Wire Color | Green             | Green/White       | Blue      | Blue/White |
+|            | AccelStepper Pin 1 | AccelStepper Pin 2 | Toggle Pin | Sleep Pin  | Limit Switch Pin |
+|------------|--------------------|--------------------|------------|------------|------------------|
+| Motor 1    | 52                 | 50                 | 48         | 46         | 10               |
+| Motor 2    | 44                 | 42                 | 40         | 38         | 9                |
+| Motor 3    | 36                 | 34                 | 32         | 30         | 8                |
+| Motor 4    | 28                 | 26                 | 24         | 22         | 7                |
+| Motor 5    | 53                 | 51                 | 49         | 47         | 6                |
+| Motor 6    | 45                 | 43                 | 41         | 39         | 5                |
+| Motor 7    | 37                 | 35                 | 33         | 31         | 4                |
+| Motor 8    | 29                 | 27                 | 25         | 23         | 3                |
+| Wire Color | Green              | Green/White        | Blue       | Blue/White | Brown            |
 
 
 #### AccelStepper Pins
@@ -30,6 +30,7 @@ Connections and cabling will be made using RJ45 and RJ11 ports.
 **Pin1:** Arduino digital pin number for motor pin 1. Defaults to pin 2. For a AccelStepper::DRIVER (interface==1), this is the Step input to the driver. Low to high transition means to step)
 
 **Pin2:** Arduino digital pin number for motor pin 2. Defaults to pin 3. For a AccelStepper::DRIVER (interface==1), this is the Direction input the driver. High means forward.
+
 
 ### Stepper Motor Pinouts
 
@@ -45,16 +46,26 @@ Connections and cabling will be made using RJ45 and RJ11 ports.
 | Wire Color | Orange/White| Orange | Brown/White | Green | Green/White | Blue/White |
 
 
+### Limit Switch Pinout
+
+|            | GND         | NO   | NC   |
+|----------- |-------------|------|------|
+| Wire Color | Brown/White | Blue | None |
+
+
 ### Ethernet RJ45 Pinouts
 
-|             | Motor Pin1 | Motor Pin2  | Toggle | Sleep      | 12v +  | 12v GND      | N/A   | Arduino GND |
-|-------------|------------|-------------|--------|------------|--------|--------------|-------|-------------|
-| Wire Color  | Green      | Green/White | Blue   | Blue/White | Orange | Orange/White | Brown | Brown/White |
-| Port Number | 1          | 2           | 3      | 4          | 5      | 6            | 7     | 8           |
+|             | Motor Pin1 | Motor Pin2  | Toggle  | Sleep      | 12v +  | GND          | Limit Switch | None |
+|-------------|------------|-------------|---------|------------|--------|--------------|--------------|------|
+| Wire Color  | Green      | Green/White | Brown   | Blue/White | Orange | Orange/White | Blue         | None |
+| Port Number | 1          | 2           | 3       | 4          | 5      | 6            | 7            | 8    |
 
 ### Ethernet RJ11 Pinouts
 
-Use outside two pins. Wire one to EasyDriver GND and other to Blue on ethernet.
+Use outside two pins. 
+|            | GND         | Toggle   |
+|----------- |-------------|----------|
+| Wire Color | Brown/White | Brown    |
 
 ## Images
 

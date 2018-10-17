@@ -8,7 +8,7 @@
 Adafruit_SSD1306 display(4);
 
 // number of gates to configure
-const int GATE_COUNT = 2;
+const int GATE_COUNT = 8;
 
 // toggles dust collector
 const int DUST_COLLECTOR_PIN = 10;

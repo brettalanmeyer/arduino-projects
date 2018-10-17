@@ -12,17 +12,17 @@ Connections and cabling will be made using RJ45 and RJ11 ports.
 
 ### Arduino Mega Pinouts
 
-|            | AccelStepper Pin 1 | AccelStepper Pin 2 | Toggle Pin | Sleep Pin  | Limit Switch Pin |
-|------------|--------------------|--------------------|------------|------------|------------------|
-| Motor 1    | 52                 | 50                 | 48         | 46         | 10               |
-| Motor 2    | 44                 | 42                 | 40         | 38         | 9                |
-| Motor 3    | 36                 | 34                 | 32         | 30         | 8                |
-| Motor 4    | 28                 | 26                 | 24         | 22         | 7                |
-| Motor 5    | 53                 | 51                 | 49         | 47         | 6                |
-| Motor 6    | 45                 | 43                 | 41         | 39         | 5                |
-| Motor 7    | 37                 | 35                 | 33         | 31         | 4                |
-| Motor 8    | 29                 | 27                 | 25         | 23         | 3                |
-| Wire Color | Green              | Green/White        | Blue       | Blue/White | Brown            |
+|            | AccelStepper Pin 1 | AccelStepper Pin 2 | Toggle Pin | Sleep Pin  | Limit Switch Pin | Port |
+|------------|--------------------|--------------------|------------|------------|------------------|------|
+| Motor 1    | 52                 | 50                 | 48         | 46         | 6                | 5    |
+| Motor 2    | 44                 | 42                 | 40         | 38         | 7                | 6    |
+| Motor 3    | 36                 | 34                 | 32         | 30         | 8                | 7    |
+| Motor 4    | 28                 | 26                 | 24         | 22         | 9                | 8    |
+| Motor 5    | 53                 | 51                 | 49         | 47         | 2                | 1    |
+| Motor 6    | 45                 | 43                 | 41         | 39         | 3                | 2    |
+| Motor 7    | 37                 | 35                 | 33         | 31         | 4                | 3    |
+| Motor 8    | 29                 | 27                 | 25         | 23         | 5                | 4    |
+| Wire Color | Green              | Green/White        | Blue       | Blue/White | Brown            |      |
 
 
 #### AccelStepper Pins

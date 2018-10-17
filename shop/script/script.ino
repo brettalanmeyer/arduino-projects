@@ -8,10 +8,10 @@
 Adafruit_SSD1306 display(4);
 
 // number of gates to configure
-const int GATE_COUNT = 8;
+const int GATE_COUNT = 2;
 
-// toggles dust collector TODO
-const int DUST_COLLECTOR_PIN = 0000;
+// toggles dust collector
+const int DUST_COLLECTOR_PIN = 10;
 
 // MotorInterfaceType
 const int EASY_DRIVER_INTERFACE = 1;
@@ -20,16 +20,14 @@ const int EASY_DRIVER_INTERFACE = 1;
 const int STEPS_PER_REVOLUTION = 1600;
 
 // number of revolutions to open/close blast gate, around 4" of travel
-const int REVOLUTIONS_PER_CYCLE = 12.8;
+const int REVOLUTIONS_PER_CYCLE = 11.0;
 
 // speeds set for the quickest opening and closing
 const int STEPPER_MAX_SPEED = 5000;
 const int STEPPER_ACCELERATION = 5000;
 
-// slower speeds to avoid overshooting homing switches
-const int STEPPER_HOMING_MAX_SPEED = 100;
-const int STEPPER_HOMING_ACCELERATION = 100;
-const int HOMING_THRESHOLD = -10000;
+// used to determine if a motor exists
+const int HOMING_THRESHOLD = -20000;
 
 // declare stepper motors, interface type, step pin, direction pin
 AccelStepper stepper1 (EASY_DRIVER_INTERFACE, 52, 50);
@@ -49,11 +47,11 @@ struct Gate {
   // gates are only enabled if bumper switch is triggered during homing process
   boolean isEnabled;
 
-  // pin for homing bumper switch
-  int homingPin;
-
   // pin for toggle buttons to open/close gate
   int togglePin;
+
+  // pin for homing bumper switch
+  int homingPin;
 
   // pin to control sleep/wake
   int sleepPin;
@@ -64,14 +62,14 @@ struct Gate {
 
 // define pins and steppers for each gate
 Gate gates[GATE_COUNT] = {
-  { stepper1, false, 10, 48, 46, false },
-  { stepper2, false, 9,  40, 38, false },
-  { stepper3, false, 8,  32, 30, false },
-  { stepper4, false, 7,  24, 22, false },
-  { stepper5, false, 6,  49, 47, false },
-  { stepper6, false, 5,  41, 39, false },
-  { stepper7, false, 4,  33, 31, false },
-  { stepper8, false, 3,  25, 23, false },
+  { stepper1, false, 6, 48, 46, false },
+  { stepper2, false, 7, 40, 38, false },
+  { stepper3, false, 8, 32, 30, false },
+  { stepper4, false, 9, 24, 22, false },
+  { stepper5, false, 2, 49, 47, false },
+  { stepper6, false, 3, 41, 39, false },
+  { stepper7, false, 4, 33, 31, false },
+  { stepper8, false, 5, 25, 23, false },
 };
 
 void initializeDisplay() {
@@ -105,6 +103,8 @@ void initializeStepperMotors() {
   Serial.println("Initializing stepper motors...");
 
   for (int i = 0; i < GATE_COUNT; i++) {
+    gates[i].stepper.setMaxSpeed(STEPPER_MAX_SPEED);  
+    gates[i].stepper.setAcceleration(STEPPER_ACCELERATION);
     pinMode(gates[i].sleepPin, OUTPUT);
   }
 }
@@ -137,21 +137,21 @@ void beginHomingProcedure() {
   delay(250);
 
   for (int i = 0; i < GATE_COUNT; i++) {
-    Serial.println("Homing gate " + i);
+    Serial.print("Homing gate ");
+    Serial.println(i);   
     printToDisplay("Homing...", i);
 
     long initialPosition = -1;
     bool gateExists = true;
     
-    gates[i].stepper.setMaxSpeed(STEPPER_HOMING_MAX_SPEED);
-    gates[i].stepper.setAcceleration(STEPPER_HOMING_ACCELERATION);
-
-    // move until switch is activated
-    while (digitalRead(gates[i].homingPin)) {
+    wakeGate(i);
+    
+    // open until switch is activated
+    while (digitalRead(gates[i].homingPin) == HIGH) {
       gates[i].stepper.moveTo(initialPosition);
       gates[i].stepper.run();
       initialPosition--;
-      delay(5);
+      delay(1);
 
       // switch was never activated which means gate is not connected
       if (initialPosition < HOMING_THRESHOLD){
@@ -161,29 +161,34 @@ void beginHomingProcedure() {
     }
 
     if (!gateExists) {
+      sleepGate(i);
       continue;  
     }
+
+    Serial.print("initialPosition ");
+    Serial.println(initialPosition);
     
     Serial.println("Homing switch activated");
 
-    gates[i].stepper.setCurrentPosition(0);
-    initialPosition = 1;
-
     // backoff switch until is deactivated
-    while (!digitalRead(gates[i].homingPin)) {
-      gates[i].stepper.moveTo(initialPosition);  
+    while (digitalRead(gates[i].homingPin) == LOW) {
+      gates[i].stepper.moveTo(initialPosition);
       gates[i].stepper.run();
       initialPosition++;
-      delay(5);
+      delay(1);
     }
 
     Serial.println("Homing switch deactivated");
 
     gates[i].isEnabled = true;
     gates[i].stepper.setCurrentPosition(0);
-    gates[i].stepper.setMaxSpeed(STEPPER_MAX_SPEED);
-    gates[i].stepper.setAcceleration(STEPPER_ACCELERATION);
+    sleepGate(i);
+
+    closeGate(i);
   }
+
+  Serial.println("Homing procedure complete");  
+  printToDisplay("System Ready...", -1);
 }
 
 void checkToggleButton() {
@@ -209,7 +214,7 @@ void openGate(int index) {
 
   gates[index].isOpen = true;
 
-  long newPosition = gates[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
+  long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
   moveGate(index, newPosition);
 }
 
@@ -227,7 +232,7 @@ void closeGate(int index) {
   Serial.println("Closing gate " + index);
   
   gates[index].isOpen = false;
-  long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
+  long newPosition = gates[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
   moveGate(index, newPosition);
 }
 
@@ -238,13 +243,15 @@ void moveGate(int index, long newPosition) {
 }
 
 void wakeGate(int index) {
-  Serial.println("Waking gate " + index);
+  Serial.print("Waking gate ");
+  Serial.println(index);
  
   digitalWrite(gates[index].sleepPin, HIGH);
 }
 
 void sleepGate(int index) {
-  Serial.println("Sleeping gate " + index);
+  Serial.print("Sleeping gate ");
+  Serial.println(index);
  
   digitalWrite(gates[index].sleepPin, LOW);
 }
@@ -255,13 +262,18 @@ void printToDisplay(String line, int gate) {
   display.setCursor(0, 0);
   display.println(line);
 
-  display.setTextSize(3);
-  display.println("Gate #" + gate);
+  if (gate != -1) {
+    display.setTextSize(3);
+    display.print("Gate ");
+    display.println(gate + 1);
+  }
+  
   display.display();
 }
 
 void setup() {
   Serial.begin(9600);
+  Serial.println("Beginning setup...");
 
   initializeDisplay();
   initializeStepperMotors();

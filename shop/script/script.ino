@@ -61,15 +61,16 @@ struct Gate {
 };
 
 // define pins and steppers for each gate
+// order indicates which patch panel port the gate is connected to
 Gate gates[GATE_COUNT] = {
-  { stepper1, false, 6, 48, 46, false },
-  { stepper2, false, 7, 40, 38, false },
-  { stepper3, false, 8, 32, 30, false },
-  { stepper4, false, 9, 24, 22, false },
   { stepper5, false, 2, 49, 47, false },
   { stepper6, false, 3, 41, 39, false },
   { stepper7, false, 4, 33, 31, false },
   { stepper8, false, 5, 25, 23, false },
+  { stepper1, false, 6, 48, 46, false },
+  { stepper2, false, 7, 40, 38, false },
+  { stepper3, false, 8, 32, 30, false },
+  { stepper4, false, 9, 24, 22, false },
 };
 
 void initializeDisplay() {
@@ -151,7 +152,7 @@ void beginHomingProcedure() {
       gates[i].stepper.moveTo(initialPosition);
       gates[i].stepper.run();
       initialPosition--;
-      delay(1);
+      delayMicroseconds(250);
 
       // switch was never activated which means gate is not connected
       if (initialPosition < HOMING_THRESHOLD){
@@ -165,9 +166,6 @@ void beginHomingProcedure() {
       continue;  
     }
 
-    Serial.print("initialPosition ");
-    Serial.println(initialPosition);
-    
     Serial.println("Homing switch activated");
 
     // backoff switch until is deactivated
@@ -181,6 +179,7 @@ void beginHomingProcedure() {
     Serial.println("Homing switch deactivated");
 
     gates[i].isEnabled = true;
+    gates[i].isOpen = true;
     gates[i].stepper.setCurrentPosition(0);
     sleepGate(i);
 
@@ -195,23 +194,23 @@ void checkToggleButton() {
   for (int i = 0; i < GATE_COUNT; i++) {
     if (digitalRead(gates[i].togglePin) == LOW) {
       toggleDustCollector();
-
-      if (gates[i].isEnabled) {
-        if (!gates[i].isOpen) {
-          openGate(i);
-          closeAllGates(i);
-        }
-      }
-     
+      openGate(i);
+      closeAllGates(i);    
+      printToDisplay("This gate is open", i);
       break;
     }
   }
 }
 
 void openGate(int index) {
-  Serial.println("Opening gate " + index);
-  printToDisplay("Opening...", index);
+  Serial.print("Opening gate ");
+  Serial.println(index); 
+  
+  if(!gates[index].isEnabled) return;
+  if(gates[index].isOpen) return;
 
+  printToDisplay("Opening...", index);
+  
   gates[index].isOpen = true;
 
   long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
@@ -222,14 +221,20 @@ void closeAllGates(int index) {
   Serial.println("Closing all gates");
 
   for(int i = 0; i < GATE_COUNT; i++){
-    if(index != i && gates[i].isOpen){
+    if(index != i){
       closeGate(i);
     }
   }
 }
 
 void closeGate(int index) {
-  Serial.println("Closing gate " + index);
+  Serial.print("Closing gate ");
+  Serial.println(index);
+
+  if(!gates[index].isEnabled) return;
+  if(!gates[index].isOpen) return;
+  
+  printToDisplay("Closing...", index);
   
   gates[index].isOpen = false;
   long newPosition = gates[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);

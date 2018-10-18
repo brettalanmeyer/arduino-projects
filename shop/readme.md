@@ -62,7 +62,8 @@ Connections and cabling will be made using RJ45 and RJ11 ports.
 
 ### Ethernet RJ11 Pinouts
 
-Use outside two pins. 
+Use outside two pins.
+
 |            | GND         | Toggle   |
 |----------- |-------------|----------|
 | Wire Color | Brown/White | Brown    |

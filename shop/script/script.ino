@@ -67,8 +67,8 @@ Gate gates[GATE_COUNT] = {
   { stepper6, false, 3, 41, 39, false },
   { stepper7, false, 4, 33, 31, false },
   { stepper8, false, 5, 25, 23, false },
-  { stepper1, false, 6, 48, 46, false },
-  { stepper2, false, 7, 40, 38, false },
+  { stepper1, false, 7, 48, 46, false },
+  { stepper2, false, 6, 40, 38, false },
   { stepper3, false, 8, 32, 30, false },
   { stepper4, false, 9, 24, 22, false },
 };

@@ -7,9 +7,6 @@
 // setup oled display
 Adafruit_SSD1306 display(4);
 
-// number of gates to configure
-const int GATE_COUNT = 8;
-
 // toggles dust collector
 const int DUST_COLLECTOR_PIN = 10;
 
@@ -20,7 +17,7 @@ const int EASY_DRIVER_INTERFACE = 1;
 const int STEPS_PER_REVOLUTION = 1600;
 
 // number of revolutions to open/close blast gate, around 4" of travel
-const int REVOLUTIONS_PER_CYCLE = 11.0;
+const double REVOLUTIONS_PER_CYCLE = 11.7;
 
 // speeds set for the quickest opening and closing
 const int STEPPER_MAX_SPEED = 5000;
@@ -60,6 +57,9 @@ struct Gate {
   boolean isOpen;
 };
 
+// number of gates to configure
+const int GATE_COUNT = 8;
+
 // define pins and steppers for each gate
 // order indicates which patch panel port the gate is connected to
 Gate gates[GATE_COUNT] = {
@@ -72,6 +72,12 @@ Gate gates[GATE_COUNT] = {
   { stepper3, false, 8, 32, 30, false },
   { stepper4, false, 9, 24, 22, false },
 };
+
+void initializeSerial() {
+  Serial.begin(9600);
+  delay(50);
+  Serial.println("Beginning setup...");
+}
 
 void initializeDisplay() {
   // generate the high voltage from the 3.3v line internally
@@ -277,9 +283,7 @@ void printToDisplay(String line, int gate) {
 }
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println("Beginning setup...");
-
+  initializeSerial();
   initializeDisplay();
   initializeStepperMotors();
   initializeToggleButtons();

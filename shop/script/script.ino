@@ -24,7 +24,7 @@ const int STEPPER_MAX_SPEED = 5000;
 const int STEPPER_ACCELERATION = 5000;
 
 // used to determine if a motor exists
-const int HOMING_THRESHOLD = -20000;
+const int HOMING_THRESHOLD = -22000;
 
 // declare stepper motors, interface type, step pin, direction pin
 AccelStepper stepper1 (EASY_DRIVER_INTERFACE, 52, 50);

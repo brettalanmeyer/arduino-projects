@@ -17,7 +17,7 @@ const int EASY_DRIVER_INTERFACE = 1;
 const int STEPS_PER_REVOLUTION = 1600;
 
 // number of revolutions to open/close blast gate, around 4" of travel
-const double REVOLUTIONS_PER_CYCLE = 11.7;
+const double REVOLUTIONS_PER_CYCLE = 11.9;
 
 // speeds set for the quickest opening and closing
 const int STEPPER_MAX_SPEED = 5000;

@@ -26,6 +26,14 @@ const int STEPPER_ACCELERATION = 5000;
 // used to determine if a motor exists
 const int HOMING_THRESHOLD = -22000;
 
+// to eliminate possible signal noise, require a minimum duration button press
+const long BUTTON_PRESS_MINIMUM_DURATION = 100;
+
+// used to determine if button press has met its minimum duration
+long buttonPressTimer = 0;
+boolean buttonPressActive = false;
+boolean buttonPressCompleted = false;
+
 // declare stepper motors, interface type, step pin, direction pin
 AccelStepper stepper1 (EASY_DRIVER_INTERFACE, 52, 50);
 AccelStepper stepper2 (EASY_DRIVER_INTERFACE, 44, 42);
@@ -134,7 +142,7 @@ void toggleDustCollector() {
   Serial.println("Toggling dust collector remote");
   
   digitalWrite(DUST_COLLECTOR_PIN, HIGH);
-  delay(250);
+  delay(350);
   digitalWrite(DUST_COLLECTOR_PIN, LOW);
 }
 
@@ -154,7 +162,7 @@ void beginHomingProcedure() {
     wakeGate(i);
     
     // open until switch is activated
-    while (digitalRead(gates[i].homingPin) == HIGH) {
+    while (homingButtonIsInactive(i)) {
       gates[i].stepper.moveTo(initialPosition);
       gates[i].stepper.run();
       initialPosition--;
@@ -175,7 +183,7 @@ void beginHomingProcedure() {
     Serial.println("Homing switch activated");
 
     // backoff switch until is deactivated
-    while (digitalRead(gates[i].homingPin) == LOW) {
+    while (homingButtonIsActive(i)) {
       gates[i].stepper.moveTo(initialPosition);
       gates[i].stepper.run();
       initialPosition++;
@@ -196,16 +204,32 @@ void beginHomingProcedure() {
   printToDisplay("System Ready...", -1);
 }
 
-void checkToggleButton() {
+void detectButtonPress() {
   for (int i = 0; i < GATE_COUNT; i++) {
-    if (digitalRead(gates[i].togglePin) == LOW) {
-      toggleDustCollector();
-      openGate(i);
-      closeAllGates(i);    
-      printToDisplay("This gate is open", i);
-      break;
+
+    buttonPressActive = false;
+    buttonPressCompleted = false;
+    
+    while (toggleButtonIsActive(i)) {
+      if (!buttonPressActive) {
+        buttonPressActive = true;
+        buttonPressTimer = millis();
+      }
+
+      if (!buttonPressCompleted && ((millis() - buttonPressTimer) > BUTTON_PRESS_MINIMUM_DURATION)) {
+        buttonPressCompleted = true;
+        activate(i);
+        break;
+      }
     }
   }
+}
+
+void activate(int index) {
+  toggleDustCollector();
+  openGate(index);
+  closeAllGates(index);
+  printToDisplay("This gate is open", index);
 }
 
 void openGate(int index) {
@@ -282,6 +306,18 @@ void printToDisplay(String line, int gate) {
   display.display();
 }
 
+bool toggleButtonIsActive(int index) {
+  digitalRead(gates[index].togglePin) == LOW;
+}
+
+bool homingButtonIsActive(int index) {
+  digitalRead(gates[index].homingPin) == LOW;
+}
+
+bool homingButtonIsInactive(int index) {
+  digitalRead(gates[index].homingPin) == HIGH;
+}
+
 void setup() {
   initializeSerial();
   initializeDisplay();
@@ -296,5 +332,5 @@ void setup() {
 }
 
 void loop() {
-  checkToggleButton();
+  detectButtonPress();
 }

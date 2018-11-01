@@ -162,7 +162,7 @@ void beginHomingProcedure() {
     wakeGate(i);
     
     // open until switch is activated
-    while (homingButtonIsInactive(i)) {
+    while (homingButtonIsNotPressed(i)) {
       gates[i].stepper.moveTo(initialPosition);
       gates[i].stepper.run();
       initialPosition--;
@@ -183,7 +183,7 @@ void beginHomingProcedure() {
     Serial.println("Homing switch activated");
 
     // backoff switch until is deactivated
-    while (homingButtonIsActive(i)) {
+    while (homingButtonIsPressed(i)) {
       gates[i].stepper.moveTo(initialPosition);
       gates[i].stepper.run();
       initialPosition++;
@@ -210,7 +210,7 @@ void detectButtonPress() {
     buttonPressActive = false;
     buttonPressCompleted = false;
     
-    while (toggleButtonIsActive(i)) {
+    while (toggleButtonIsPressed(i)) {
       if (!buttonPressActive) {
         buttonPressActive = true;
         buttonPressTimer = millis();
@@ -306,15 +306,15 @@ void printToDisplay(String line, int gate) {
   display.display();
 }
 
-bool toggleButtonIsActive(int index) {
+bool toggleButtonIsPressed(int index) {
   digitalRead(gates[index].togglePin) == LOW;
 }
 
-bool homingButtonIsActive(int index) {
+bool homingButtonIsPressed(int index) {
   digitalRead(gates[index].homingPin) == LOW;
 }
 
-bool homingButtonIsInactive(int index) {
+bool homingButtonIsNotPressed(int index) {
   digitalRead(gates[index].homingPin) == HIGH;
 }
 

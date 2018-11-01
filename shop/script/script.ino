@@ -161,8 +161,8 @@ void beginHomingProcedure() {
     
     wakeGate(i);
     
-    // open until switch is activated
-    while (homingButtonIsNotPressed(i)) {
+    // open gate to max open position
+    while (homingSwitchIsNotActive(i)) {
       gates[i].stepper.moveTo(initialPosition);
       gates[i].stepper.run();
       initialPosition--;
@@ -182,8 +182,9 @@ void beginHomingProcedure() {
 
     Serial.println("Homing switch activated");
 
-    // backoff switch until is deactivated
-    while (homingButtonIsPressed(i)) {
+    // once max open position is aquired, the motor has to decelerate
+    // backoff switch until deactivated
+    while (homingSwitchIsActive(i)) {
       gates[i].stepper.moveTo(initialPosition);
       gates[i].stepper.run();
       initialPosition++;
@@ -192,6 +193,7 @@ void beginHomingProcedure() {
 
     Serial.println("Homing switch deactivated");
 
+    // reset gate values
     gates[i].isEnabled = true;
     gates[i].isOpen = true;
     gates[i].stepper.setCurrentPosition(0);
@@ -310,11 +312,11 @@ bool toggleButtonIsPressed(int index) {
   digitalRead(gates[index].togglePin) == LOW;
 }
 
-bool homingButtonIsPressed(int index) {
+bool homingSwitchIsActive(int index) {
   digitalRead(gates[index].homingPin) == LOW;
 }
 
-bool homingButtonIsNotPressed(int index) {
+bool homingSwitchIsNotActive(int index) {
   digitalRead(gates[index].homingPin) == HIGH;
 }
 

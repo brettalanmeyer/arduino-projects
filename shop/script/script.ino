@@ -43,18 +43,17 @@ AccelStepper stepper6 (EASY_DRIVER_INTERFACE, 45, 43);
 AccelStepper stepper7 (EASY_DRIVER_INTERFACE, 37, 35);
 AccelStepper stepper8 (EASY_DRIVER_INTERFACE, 29, 27);
 
-// pins and stepper motors for toggling, waking, and sleeping motors
 struct Gate {
   // stepper object
   AccelStepper stepper;
 
-  // gates are only enabled if bumper switch is triggered during homing process
+  // gates are only enabled if homing switch gets activated
   boolean isEnabled;
 
   // pin for toggle buttons to open/close gate
   int togglePin;
 
-  // pin for homing bumper switch
+  // pin for homing switch
   int homingPin;
 
   // pin to control sleep/wake

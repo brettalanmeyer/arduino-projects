@@ -32,7 +32,6 @@ const long BUTTON_PRESS_MINIMUM_DURATION = 100;
 // used to determine if button press has met its minimum duration
 long buttonPressTimer = 0;
 boolean buttonPressActive = false;
-boolean buttonPressCompleted = false;
 
 // declare stepper motors, interface type, step pin, direction pin
 AccelStepper stepper1 (EASY_DRIVER_INTERFACE, 52, 50);
@@ -210,7 +209,6 @@ void detectButtonPress() {
   for (int i = 0; i < GATE_COUNT; i++) {
 
     buttonPressActive = false;
-    buttonPressCompleted = false;
     
     while (toggleButtonIsPressed(i)) {
       if (!buttonPressActive) {
@@ -218,8 +216,7 @@ void detectButtonPress() {
         buttonPressTimer = millis();
       }
 
-      if (!buttonPressCompleted && ((millis() - buttonPressTimer) > BUTTON_PRESS_MINIMUM_DURATION)) {
-        buttonPressCompleted = true;
+      if ((millis() - buttonPressTimer) > BUTTON_PRESS_MINIMUM_DURATION) {
         activate(i);
         break;
       }

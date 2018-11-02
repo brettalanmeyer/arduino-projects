@@ -305,15 +305,15 @@ void printToDisplay(String line, int gate) {
 }
 
 bool toggleButtonIsPressed(int index) {
-  digitalRead(gates[index].togglePin) == LOW;
+  return digitalRead(gates[index].togglePin) == LOW;
 }
 
 bool homingSwitchIsActive(int index) {
-  digitalRead(gates[index].homingPin) == LOW;
+  return digitalRead(gates[index].homingPin) == LOW;
 }
 
 bool homingSwitchIsNotActive(int index) {
-  digitalRead(gates[index].homingPin) == HIGH;
+  return digitalRead(gates[index].homingPin) == HIGH;
 }
 
 void setup() {

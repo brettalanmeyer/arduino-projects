@@ -228,6 +228,7 @@ void activate(int index) {
   openGate(index);
   closeAllGates(index);
   printToDisplay("This gate is open", index);
+  preventRetoggle();
 }
 
 void openGate(int index) {
@@ -302,6 +303,11 @@ void printToDisplay(String line, int gate) {
   }
   
   display.display();
+}
+
+void preventRetoggle() {
+  // prevent a retoggle by delaying to allow user to release toggle button
+  delay(1000);
 }
 
 bool toggleButtonIsPressed(int index) {

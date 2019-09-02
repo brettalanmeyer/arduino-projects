@@ -332,11 +332,16 @@ bool homingSwitchIsNotActive(int index) {
 }
 
 bool loadSavedGate() {
+  Serial.println("Checking for saved gate...");
+
   int index = readGate();
   if(index == DEFAULT_VALUE){
+    Serial.println("No saved gate found.");
     return false;
   }
 
+  Serial.print("Saved gate found: ");
+  Serial.println(index);
   gates[index].isOpen = true;
 
   return true;
@@ -344,14 +349,19 @@ bool loadSavedGate() {
 
 
 int readGate() {
+  Serial.println("Reading gate from memory...");
   return EEPROM.read(MEMORY_ADDRESS);
 }
 
 void saveGate(int value) {
+  Serial.print("Saving gate ");
+  Serial.print(value);
+  Serial.println(" to memory...");
   EEPROM.write(MEMORY_ADDRESS, value);
 }
 
 void clearGate() {
+  Serial.println("Reseting gate value to memory...");
   saveGate(DEFAULT_VALUE);
 }
 

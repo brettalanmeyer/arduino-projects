@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <EEPROM.h>
 
 // setup oled display
 Adafruit_SSD1306 display(4);
@@ -32,6 +33,12 @@ const long BUTTON_PRESS_MINIMUM_DURATION = 100;
 // used to determine if button press has met its minimum duration
 long buttonPressTimer = 0;
 boolean buttonPressActive = false;
+
+// memory address for reading/writing last active gate
+const int MEMORY_ADDRESS = 0;
+
+// default value read from memory
+const int DEFAULT_VALUE = 255;
 
 // declare stepper motors, interface type, step pin, direction pin
 AccelStepper stepper1 (EASY_DRIVER_INTERFACE, 52, 50);
@@ -94,7 +101,7 @@ void initializeDisplay() {
   // since the buffer is intialized with an Adafruit splashscreen
   // internally, this will display the splashscreen
   display.display();
-  
+
   delay(1000);
 
   // clear the buffer
@@ -116,7 +123,7 @@ void initializeStepperMotors() {
   Serial.println("Initializing stepper motors...");
 
   for (int i = 0; i < GATE_COUNT; i++) {
-    gates[i].stepper.setMaxSpeed(STEPPER_MAX_SPEED);  
+    gates[i].stepper.setMaxSpeed(STEPPER_MAX_SPEED);
     gates[i].stepper.setAcceleration(STEPPER_ACCELERATION);
     pinMode(gates[i].sleepPin, OUTPUT);
   }
@@ -124,13 +131,13 @@ void initializeStepperMotors() {
 
 void initializeDustCollector() {
   Serial.println("Initializing dust collector...");
- 
+
   pinMode(DUST_COLLECTOR_PIN, OUTPUT);
 }
 
 void initializeHomingSwitches() {
   Serial.println("Initializing homing switches...");
-  
+
   for (int i = 0; i < GATE_COUNT; i++) {
     pinMode(gates[i].homingPin, INPUT_PULLUP);
   }
@@ -138,7 +145,7 @@ void initializeHomingSwitches() {
 
 void toggleDustCollector() {
   Serial.println("Toggling dust collector remote");
-  
+
   digitalWrite(DUST_COLLECTOR_PIN, HIGH);
   delay(350);
   digitalWrite(DUST_COLLECTOR_PIN, LOW);
@@ -146,19 +153,19 @@ void toggleDustCollector() {
 
 void beginHomingProcedure() {
   Serial.println("Beginning homing procedure...");
-  
+
   delay(250);
 
   for (int i = 0; i < GATE_COUNT; i++) {
     Serial.print("Homing gate ");
-    Serial.println(i);   
+    Serial.println(i);
     printToDisplay("Homing...", i);
 
     long initialPosition = -1;
     bool gateExists = true;
-    
+
     wakeGate(i);
-    
+
     // open gate to max open position
     while (homingSwitchIsNotActive(i)) {
       gates[i].stepper.moveTo(initialPosition);
@@ -175,7 +182,7 @@ void beginHomingProcedure() {
 
     if (!gateExists) {
       sleepGate(i);
-      continue;  
+      continue;
     }
 
     Serial.println("Homing switch activated");
@@ -200,7 +207,7 @@ void beginHomingProcedure() {
     closeGate(i);
   }
 
-  Serial.println("Homing procedure complete");  
+  Serial.println("Homing procedure complete");
   printToDisplay("System Ready...", -1);
 }
 
@@ -208,7 +215,7 @@ void detectButtonPress() {
   for (int i = 0; i < GATE_COUNT; i++) {
 
     buttonPressActive = false;
-    
+
     while (toggleButtonIsPressed(i)) {
       if (!buttonPressActive) {
         buttonPressActive = true;
@@ -224,22 +231,24 @@ void detectButtonPress() {
 }
 
 void activate(int index) {
+  clearGate();
   toggleDustCollector();
   openGate(index);
   closeAllGates(index);
   printToDisplay("This gate is open", index);
   preventRetoggle();
+  saveGate(index);
 }
 
 void openGate(int index) {
   Serial.print("Opening gate ");
-  Serial.println(index); 
-  
+  Serial.println(index);
+
   if(!gates[index].isEnabled) return;
   if(gates[index].isOpen) return;
 
   printToDisplay("Opening...", index);
-  
+
   gates[index].isOpen = true;
 
   long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
@@ -262,9 +271,9 @@ void closeGate(int index) {
 
   if(!gates[index].isEnabled) return;
   if(!gates[index].isOpen) return;
-  
+
   printToDisplay("Closing...", index);
-  
+
   gates[index].isOpen = false;
   long newPosition = gates[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
   moveGate(index, newPosition);
@@ -279,14 +288,14 @@ void moveGate(int index, long newPosition) {
 void wakeGate(int index) {
   Serial.print("Waking gate ");
   Serial.println(index);
- 
+
   digitalWrite(gates[index].sleepPin, HIGH);
 }
 
 void sleepGate(int index) {
   Serial.print("Sleeping gate ");
   Serial.println(index);
- 
+
   digitalWrite(gates[index].sleepPin, LOW);
 }
 
@@ -301,7 +310,7 @@ void printToDisplay(String line, int gate) {
     display.print("Gate ");
     display.println(gate + 1);
   }
-  
+
   display.display();
 }
 
@@ -322,6 +331,30 @@ bool homingSwitchIsNotActive(int index) {
   return digitalRead(gates[index].homingPin) == HIGH;
 }
 
+bool loadSavedGate() {
+  int index = readGate();
+  if(index == DEFAULT_VALUE){
+    return false;
+  }
+
+  gates[index].isOpen = true;
+
+  return true;
+}
+
+
+int readGate() {
+  return EEPROM.read(MEMORY_ADDRESS);
+}
+
+void saveGate(int value) {
+  EEPROM.write(MEMORY_ADDRESS, value);
+}
+
+void clearGate() {
+  saveGate(DEFAULT_VALUE);
+}
+
 void setup() {
   initializeSerial();
   initializeDisplay();
@@ -332,7 +365,9 @@ void setup() {
 
   delay(250);
 
-  beginHomingProcedure();
+  if (!loadSavedGate()) {
+    beginHomingProcedure();
+  }
 }
 
 void loop() {

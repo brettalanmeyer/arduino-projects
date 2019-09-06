@@ -30,15 +30,26 @@ const int HOMING_THRESHOLD = -22000;
 // to eliminate possible signal noise, require a minimum duration button press
 const long BUTTON_PRESS_MINIMUM_DURATION = 100;
 
-// used to determine if button press has met its minimum duration
-long buttonPressTimer = 0;
-boolean buttonPressActive = false;
-
-// memory address for reading/writing last active gate
-const int MEMORY_ADDRESS = 0;
+// to eliminate possible signal noise, require a minimum duration button press
+const long RESET_BUTTON_PRESS_MINIMUM_DURATION = 2000;
 
 // default value read from memory
-const int DEFAULT_VALUE = 255;
+const int CLEARED_MEMORY_VALUE = 255;
+
+// pin for the reset memory button
+const int MEMORY_RESET_PIN = 11;
+
+// number of gates to configure
+const int GATE_COUNT = 8;
+
+// used to determine if button press has met its minimum duration
+long buttonPressTimer = 0;
+
+// used to determine if button has been pressed
+boolean buttonPressActive = false;
+
+// function for programatically resetting the arduino
+void(* resetArduino) (void) = 0;
 
 // declare stepper motors, interface type, step pin, direction pin
 AccelStepper stepper1 (EASY_DRIVER_INTERFACE, 52, 50);
@@ -69,9 +80,6 @@ struct Gate {
   // is stepper currently open
   boolean isOpen;
 };
-
-// number of gates to configure
-const int GATE_COUNT = 8;
 
 // define pins and steppers for each gate
 // order indicates which patch panel port the gate is connected to
@@ -117,6 +125,8 @@ void initializeToggleButtons() {
   for(int i = 0; i < GATE_COUNT; i++){
     pinMode(gates[i].togglePin, INPUT_PULLUP);
   }
+
+  pinMode(MEMORY_RESET_PIN, INPUT_PULLUP);
 }
 
 void initializeStepperMotors() {
@@ -207,11 +217,12 @@ void beginHomingProcedure() {
     closeGate(i);
   }
 
+  writeGatesToMemory();
+
   Serial.println("Homing procedure complete");
-  printToDisplay("System Ready...", -1);
 }
 
-void detectButtonPress() {
+void detectGateButtonPress() {
   for (int i = 0; i < GATE_COUNT; i++) {
 
     buttonPressActive = false;
@@ -223,21 +234,37 @@ void detectButtonPress() {
       }
 
       if ((millis() - buttonPressTimer) > BUTTON_PRESS_MINIMUM_DURATION) {
-        activate(i);
+        activateGate(i);
         break;
       }
     }
   }
 }
 
-void activate(int index) {
-  clearGate();
+void detectResetButtonPress() {
+  buttonPressActive = false;
+
+  while (memoryResetButtonIsPressed()) {
+    if (!buttonPressActive) {
+      buttonPressActive = true;
+      buttonPressTimer = millis();
+    }
+
+    if ((millis() - buttonPressTimer) > RESET_BUTTON_PRESS_MINIMUM_DURATION) {
+      resetSystem();
+      break;
+    }
+  }
+}
+
+void activateGate(int index) {
+  clearMemory();
   toggleDustCollector();
   openGate(index);
   closeAllGates(index);
   printToDisplay("This gate is open", index);
+  writeGatesToMemory();
   preventRetoggle();
-  saveGate(index);
 }
 
 void openGate(int index) {
@@ -323,6 +350,10 @@ bool toggleButtonIsPressed(int index) {
   return digitalRead(gates[index].togglePin) == LOW;
 }
 
+bool memoryResetButtonIsPressed() {
+  return digitalRead(MEMORY_RESET_PIN) == LOW;
+}
+
 bool homingSwitchIsActive(int index) {
   return digitalRead(gates[index].homingPin) == LOW;
 }
@@ -331,38 +362,62 @@ bool homingSwitchIsNotActive(int index) {
   return digitalRead(gates[index].homingPin) == HIGH;
 }
 
-bool loadSavedGate() {
-  Serial.println("Checking for saved gate...");
+void clearMemory() {
+  Serial.println("Resetting arduino EEPROM...");
 
-  int index = readGate();
-  if(index == DEFAULT_VALUE){
-    Serial.println("No saved gate found.");
+  for (int i = 0 ; i < EEPROM.length() ; i++) {
+    EEPROM.write(i, CLEARED_MEMORY_VALUE);
+  }
+
+  Serial.println("EEPROM cleared...");
+}
+
+void writeGatesToMemory() {
+  Serial.println("Saving gates to memory...");
+
+  for (int i = 0; i < GATE_COUNT; i++) {
+    writeGateToMemory(i);
+  }
+
+  Serial.println("Gates saved...");
+}
+
+void readGatesFromMemory() {
+  Serial.println("Saving gates to memory...");
+
+  for (int i = 0; i < GATE_COUNT; i++) {
+    readGateFromMemory(i);
+  }
+
+  Serial.println("Gates saved...");
+}
+
+void writeGateToMemory(int index) {
+  EEPROM.write(index, gates[index].isEnabled ? 1 : 0);
+  EEPROM.write(index + GATE_COUNT, gates[index].isOpen ? 1 : 0);
+}
+
+void readGateFromMemory(int index) {
+  gates[index].isEnabled = EEPROM.read(index) == 1;
+  gates[index].isOpen = EEPROM.read(index + GATE_COUNT) == 1;
+}
+
+bool gatesAreSaved() {
+  if (EEPROM.read(0) == CLEARED_MEMORY_VALUE) {
+    Serial.println("Gates are not saved in memory...");
     return false;
   }
 
-  Serial.print("Saved gate found: ");
-  Serial.println(index);
-  gates[index].isOpen = true;
+  Serial.println("Gates are saved in memory...");
+  readGatesFromMemory();
 
   return true;
 }
 
-
-int readGate() {
-  Serial.println("Reading gate from memory...");
-  return EEPROM.read(MEMORY_ADDRESS);
-}
-
-void saveGate(int value) {
-  Serial.print("Saving gate ");
-  Serial.print(value);
-  Serial.println(" to memory...");
-  EEPROM.write(MEMORY_ADDRESS, value);
-}
-
-void clearGate() {
-  Serial.println("Reseting gate value to memory...");
-  saveGate(DEFAULT_VALUE);
+void resetSystem() {
+  printToDisplay("Resetting System...", -1);
+  clearMemory();
+  resetArduino();
 }
 
 void setup() {
@@ -375,11 +430,14 @@ void setup() {
 
   delay(250);
 
-  if (!loadSavedGate()) {
+  if (!gatesAreSaved()) {
     beginHomingProcedure();
   }
+
+  printToDisplay("System Ready...", -1);
 }
 
 void loop() {
-  detectButtonPress();
+  detectGateButtonPress();
+  detectResetButtonPress();
 }

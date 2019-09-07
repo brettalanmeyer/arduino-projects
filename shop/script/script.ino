@@ -42,12 +42,6 @@ const int MEMORY_RESET_PIN = 11;
 // number of gates to configure
 const int GATE_COUNT = 8;
 
-// used to determine if button press has met its minimum duration
-long buttonPressTimer = 0;
-
-// used to determine if button has been pressed
-boolean buttonPressActive = false;
-
 // function for programatically resetting the arduino
 void(* resetArduino) (void) = 0;
 
@@ -223,8 +217,10 @@ void beginHomingProcedure() {
 }
 
 void detectGateButtonPress() {
-  for (int i = 0; i < GATE_COUNT; i++) {
+  boolean buttonPressActive = false;
+  long buttonPressTimer = 0;
 
+  for (int i = 0; i < GATE_COUNT; i++) {
     buttonPressActive = false;
 
     while (toggleButtonIsPressed(i)) {
@@ -242,7 +238,8 @@ void detectGateButtonPress() {
 }
 
 void detectResetButtonPress() {
-  buttonPressActive = false;
+  boolean buttonPressActive = false;
+  long buttonPressTimer = 0;
 
   while (memoryResetButtonIsPressed()) {
     if (!buttonPressActive) {
@@ -365,7 +362,7 @@ bool homingSwitchIsNotActive(int index) {
 void clearMemory() {
   Serial.println("Resetting arduino EEPROM...");
 
-  for (int i = 0 ; i < EEPROM.length() ; i++) {
+  for (int i = 0 ; i < GATE_COUNT * 2; i++) {
     EEPROM.write(i, CLEARED_MEMORY_VALUE);
   }
 

@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <EEPROM.h>
 
 // setup oled display
 Adafruit_SSD1306 display(4);
@@ -29,9 +30,20 @@ const int HOMING_THRESHOLD = -22000;
 // to eliminate possible signal noise, require a minimum duration button press
 const long BUTTON_PRESS_MINIMUM_DURATION = 100;
 
-// used to determine if button press has met its minimum duration
-long buttonPressTimer = 0;
-boolean buttonPressActive = false;
+// to eliminate possible signal noise, require a minimum duration button press
+const long RESET_BUTTON_PRESS_MINIMUM_DURATION = 2000;
+
+// default value read from memory
+const int CLEARED_MEMORY_VALUE = 255;
+
+// pin for the reset memory button
+const int MEMORY_RESET_PIN = 11;
+
+// number of gates to configure
+const int GATE_COUNT = 8;
+
+// function for programatically resetting the arduino
+void(* resetArduino) (void) = 0;
 
 // declare stepper motors, interface type, step pin, direction pin
 AccelStepper stepper1 (EASY_DRIVER_INTERFACE, 52, 50);
@@ -63,9 +75,6 @@ struct Gate {
   boolean isOpen;
 };
 
-// number of gates to configure
-const int GATE_COUNT = 8;
-
 // define pins and steppers for each gate
 // order indicates which patch panel port the gate is connected to
 Gate gates[GATE_COUNT] = {
@@ -94,7 +103,7 @@ void initializeDisplay() {
   // since the buffer is intialized with an Adafruit splashscreen
   // internally, this will display the splashscreen
   display.display();
-  
+
   delay(1000);
 
   // clear the buffer
@@ -110,13 +119,15 @@ void initializeToggleButtons() {
   for(int i = 0; i < GATE_COUNT; i++){
     pinMode(gates[i].togglePin, INPUT_PULLUP);
   }
+
+  pinMode(MEMORY_RESET_PIN, INPUT_PULLUP);
 }
 
 void initializeStepperMotors() {
   Serial.println("Initializing stepper motors...");
 
   for (int i = 0; i < GATE_COUNT; i++) {
-    gates[i].stepper.setMaxSpeed(STEPPER_MAX_SPEED);  
+    gates[i].stepper.setMaxSpeed(STEPPER_MAX_SPEED);
     gates[i].stepper.setAcceleration(STEPPER_ACCELERATION);
     pinMode(gates[i].sleepPin, OUTPUT);
   }
@@ -124,13 +135,13 @@ void initializeStepperMotors() {
 
 void initializeDustCollector() {
   Serial.println("Initializing dust collector...");
- 
+
   pinMode(DUST_COLLECTOR_PIN, OUTPUT);
 }
 
 void initializeHomingSwitches() {
   Serial.println("Initializing homing switches...");
-  
+
   for (int i = 0; i < GATE_COUNT; i++) {
     pinMode(gates[i].homingPin, INPUT_PULLUP);
   }
@@ -138,7 +149,7 @@ void initializeHomingSwitches() {
 
 void toggleDustCollector() {
   Serial.println("Toggling dust collector remote");
-  
+
   digitalWrite(DUST_COLLECTOR_PIN, HIGH);
   delay(350);
   digitalWrite(DUST_COLLECTOR_PIN, LOW);
@@ -146,19 +157,19 @@ void toggleDustCollector() {
 
 void beginHomingProcedure() {
   Serial.println("Beginning homing procedure...");
-  
+
   delay(250);
 
   for (int i = 0; i < GATE_COUNT; i++) {
     Serial.print("Homing gate ");
-    Serial.println(i);   
+    Serial.println(i);
     printToDisplay("Homing...", i);
 
     long initialPosition = -1;
     bool gateExists = true;
-    
+
     wakeGate(i);
-    
+
     // open gate to max open position
     while (homingSwitchIsNotActive(i)) {
       gates[i].stepper.moveTo(initialPosition);
@@ -175,7 +186,7 @@ void beginHomingProcedure() {
 
     if (!gateExists) {
       sleepGate(i);
-      continue;  
+      continue;
     }
 
     Serial.println("Homing switch activated");
@@ -200,15 +211,18 @@ void beginHomingProcedure() {
     closeGate(i);
   }
 
-  Serial.println("Homing procedure complete");  
-  printToDisplay("System Ready...", -1);
+  writeGatesToMemory();
+
+  Serial.println("Homing procedure complete");
 }
 
-void detectButtonPress() {
-  for (int i = 0; i < GATE_COUNT; i++) {
+void detectGateButtonPress() {
+  boolean buttonPressActive = false;
+  long buttonPressTimer = 0;
 
+  for (int i = 0; i < GATE_COUNT; i++) {
     buttonPressActive = false;
-    
+
     while (toggleButtonIsPressed(i)) {
       if (!buttonPressActive) {
         buttonPressActive = true;
@@ -216,30 +230,49 @@ void detectButtonPress() {
       }
 
       if ((millis() - buttonPressTimer) > BUTTON_PRESS_MINIMUM_DURATION) {
-        activate(i);
+        activateGate(i);
         break;
       }
     }
   }
 }
 
-void activate(int index) {
+void detectResetButtonPress() {
+  boolean buttonPressActive = false;
+  long buttonPressTimer = 0;
+
+  while (memoryResetButtonIsPressed()) {
+    if (!buttonPressActive) {
+      buttonPressActive = true;
+      buttonPressTimer = millis();
+    }
+
+    if ((millis() - buttonPressTimer) > RESET_BUTTON_PRESS_MINIMUM_DURATION) {
+      resetSystem();
+      break;
+    }
+  }
+}
+
+void activateGate(int index) {
+  clearMemory();
   toggleDustCollector();
   openGate(index);
   closeAllGates(index);
   printToDisplay("This gate is open", index);
+  writeGatesToMemory();
   preventRetoggle();
 }
 
 void openGate(int index) {
   Serial.print("Opening gate ");
-  Serial.println(index); 
-  
+  Serial.println(index);
+
   if(!gates[index].isEnabled) return;
   if(gates[index].isOpen) return;
 
   printToDisplay("Opening...", index);
-  
+
   gates[index].isOpen = true;
 
   long newPosition = gates[index].stepper.currentPosition() - (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
@@ -262,9 +295,9 @@ void closeGate(int index) {
 
   if(!gates[index].isEnabled) return;
   if(!gates[index].isOpen) return;
-  
+
   printToDisplay("Closing...", index);
-  
+
   gates[index].isOpen = false;
   long newPosition = gates[index].stepper.currentPosition() + (STEPS_PER_REVOLUTION * REVOLUTIONS_PER_CYCLE);
   moveGate(index, newPosition);
@@ -279,14 +312,14 @@ void moveGate(int index, long newPosition) {
 void wakeGate(int index) {
   Serial.print("Waking gate ");
   Serial.println(index);
- 
+
   digitalWrite(gates[index].sleepPin, HIGH);
 }
 
 void sleepGate(int index) {
   Serial.print("Sleeping gate ");
   Serial.println(index);
- 
+
   digitalWrite(gates[index].sleepPin, LOW);
 }
 
@@ -301,7 +334,7 @@ void printToDisplay(String line, int gate) {
     display.print("Gate ");
     display.println(gate + 1);
   }
-  
+
   display.display();
 }
 
@@ -314,12 +347,74 @@ bool toggleButtonIsPressed(int index) {
   return digitalRead(gates[index].togglePin) == LOW;
 }
 
+bool memoryResetButtonIsPressed() {
+  return digitalRead(MEMORY_RESET_PIN) == LOW;
+}
+
 bool homingSwitchIsActive(int index) {
   return digitalRead(gates[index].homingPin) == LOW;
 }
 
 bool homingSwitchIsNotActive(int index) {
   return digitalRead(gates[index].homingPin) == HIGH;
+}
+
+void clearMemory() {
+  Serial.println("Resetting arduino EEPROM...");
+
+  for (int i = 0 ; i < GATE_COUNT * 2; i++) {
+    EEPROM.write(i, CLEARED_MEMORY_VALUE);
+  }
+
+  Serial.println("EEPROM cleared...");
+}
+
+void writeGatesToMemory() {
+  Serial.println("Saving gates to memory...");
+
+  for (int i = 0; i < GATE_COUNT; i++) {
+    writeGateToMemory(i);
+  }
+
+  Serial.println("Gates saved...");
+}
+
+void readGatesFromMemory() {
+  Serial.println("Saving gates to memory...");
+
+  for (int i = 0; i < GATE_COUNT; i++) {
+    readGateFromMemory(i);
+  }
+
+  Serial.println("Gates saved...");
+}
+
+void writeGateToMemory(int index) {
+  EEPROM.write(index, gates[index].isEnabled ? 1 : 0);
+  EEPROM.write(index + GATE_COUNT, gates[index].isOpen ? 1 : 0);
+}
+
+void readGateFromMemory(int index) {
+  gates[index].isEnabled = EEPROM.read(index) == 1;
+  gates[index].isOpen = EEPROM.read(index + GATE_COUNT) == 1;
+}
+
+bool gatesAreSaved() {
+  if (EEPROM.read(0) == CLEARED_MEMORY_VALUE) {
+    Serial.println("Gates are not saved in memory...");
+    return false;
+  }
+
+  Serial.println("Gates are saved in memory...");
+  readGatesFromMemory();
+
+  return true;
+}
+
+void resetSystem() {
+  printToDisplay("Resetting System...", -1);
+  clearMemory();
+  resetArduino();
 }
 
 void setup() {
@@ -332,9 +427,14 @@ void setup() {
 
   delay(250);
 
-  beginHomingProcedure();
+  if (!gatesAreSaved()) {
+    beginHomingProcedure();
+  }
+
+  printToDisplay("System Ready...", -1);
 }
 
 void loop() {
-  detectButtonPress();
+  detectGateButtonPress();
+  detectResetButtonPress();
 }
